@@ -14,8 +14,8 @@
 function recomputeAll() {
   var cfg = getConfig();
   var props = PropertiesService.getScriptProperties();
-  var formId = props.getProperty(PROP.FORM_ID);
-  if (!formId) { throw new Error('No form yet — run setup() first.'); }
+  var formId = props.getProperty(PROP.FORM_ID) || cfg.FORM_ID;
+  if (!formId) { throw new Error('Форму ще не наповнено — спочатку запустіть setup().'); }
 
   var responses = FormApp.openById(formId).getResponses();
   var latest = {};   // normalised project -> submission (active period only)
@@ -86,7 +86,7 @@ function coverageStatus_() {
 function buildCoverage() {
   var cfg = getConfig();
   var sheet = ensureSheet_(cfg.COVERAGE_SHEET,
-    ['Project', 'Row', 'Phases filled (of 8)', 'Status', 'Period', 'Refreshed']);
+    ['Проєкт', 'Рядок', 'Заповнено фаз (з 8)', 'Статус', 'Період', 'Оновлено']);
   var status = coverageStatus_();
   var now = new Date();
 
@@ -96,7 +96,7 @@ function buildCoverage() {
   if (!status.length) { return; }
 
   var rows = status.map(function (r) {
-    return [r.project, r.row, r.filled, r.reported ? 'Reported' : 'Missing', cfg.ACTIVE_PERIOD, now];
+    return [r.project, r.row, r.filled, r.reported ? 'Відзвітував' : 'Немає даних', cfg.ACTIVE_PERIOD, now];
   });
   sheet.getRange(2, 1, rows.length, 6).setValues(rows);
 }
@@ -109,11 +109,11 @@ function buildCoverage() {
 function snapshotPeriod() {
   var cfg = getConfig();
   var sheet = getMainSheet_();
-  var name = 'Archive ' + cfg.ACTIVE_PERIOD;
-  var ss = SpreadsheetApp.getActive();
+  var name = 'Архів ' + cfg.ACTIVE_PERIOD;
+  var ss = getTargetSpreadsheet();
   if (ss.getSheetByName(name)) { ss.deleteSheet(ss.getSheetByName(name)); }
 
-  var headers = ['Project'];
+  var headers = ['Проєкт'];
   for (var i = 0; i < PHASES.length; i++) { headers.push(PHASES[i].short); }
   var archive = ss.insertSheet(name);
   archive.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');

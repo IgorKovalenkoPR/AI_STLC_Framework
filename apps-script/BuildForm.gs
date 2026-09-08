@@ -1,42 +1,46 @@
 /**
- * BuildForm.gs — builds the Google Form programmatically.
+ * BuildForm.gs — наповнення Google-форми питаннями.
  *
- * The form is rebuilt from this file, never edited by hand: question wording is
- * versioned in docs/form-spec.md and in this script. After changing wording run
- * "AI STLC ▸ Rebuild form" — the old form is renamed and a fresh one is created.
+ * Скрипт працює з ІСНУЮЧОЮ формою за її ID (CONFIG.FORM_ID): він видаляє всі
+ * поточні елементи і будує анкету заново. Посилання на форму не змінюється,
+ * прив'язка до таблиці відповідей зберігається, раніше зібрані відповіді не
+ * зникають.
  *
- * Answers are located by item ID (stored in the ITEM_MAP script property), not
- * by question title, so re-wording a question never breaks the mapping.
+ * Форму не редагують кліками в UI: відповіді знаходяться за ID елементів
+ * (властивість ITEM_MAP), тому додане вручну питання буде проігнороване.
+ * Усі зміни — тут, далі меню «AI STLC ▸ Наповнити форму».
  */
 
-var UA = {
-  formDescription:
-    'Опитування для QA тім-лідів: оцінка використання AI на кожній фазі STLC на вашому проєкті.\n\n' +
-    'Заповнення займає ~10 хвилин. Відповіді автоматично потрапляють у зведену таблицю ' +
-    '"AI QA Optimization — Target vs Actual" у рядок вашого проєкту.\n\n' +
-    'Що підготувати заздалегідь: приблизні витрати часу «до AI» і «з AI» по фазах ' +
-    '(тайм-логи Jira, таймшити, або експертна оцінка). Якщо замірів немає — нічого страшного, ' +
-    'у формі є варіант оцінити діапазоном.\n\n' +
-    'Принцип фреймворку: AI доповнює, а не замінює інженера. ' +
-    'Якщо на якійсь фазі AI не використовується або його неможливо застосувати — так і вкажіть, ' +
-    'це коректна і корисна відповідь.'
-};
+var FORM_DESCRIPTION =
+  'Опитування для QA тім-лідів: оцінка використання AI на кожній фазі STLC на вашому проєкті.\n\n' +
+  'Заповнення займає ~10 хвилин. Відповіді автоматично потрапляють у зведену таблицю ' +
+  '«AI QA Optimization — Target vs Actual» у рядок вашого проєкту.\n\n' +
+  'Що підготувати заздалегідь: приблизні витрати часу «до AI» і «з AI» по фазах ' +
+  '(тайм-логи Jira, таймшити або експертна оцінка). Якщо замірів немає — нічого страшного, ' +
+  'у формі є варіант оцінити діапазоном.\n\n' +
+  'Принцип фреймворку: AI доповнює, а не замінює інженера. Якщо на якійсь фазі AI не ' +
+  'використовується або його неможливо застосувати — так і вкажіть, це коректна і корисна відповідь.';
 
 /**
- * Creates the form, links it to this spreadsheet and stores the item map.
- * Returns the created Form object.
+ * Наповнює форму CONFIG.FORM_ID. Повертає об'єкт Form.
+ * Безпечно запускати повторно — форма щоразу перебудовується з нуля.
  */
-function createForm() {
+function populateForm() {
   var cfg = getConfig();
-  var ss = SpreadsheetApp.getActive();
-  var form = FormApp.create(cfg.FORM_TITLE);
+  if (!cfg.FORM_ID) {
+    throw new Error('Не задано FORM_ID. Вкажіть його у Config.gs або у властивостях скрипта.');
+  }
+  var form = FormApp.openById(cfg.FORM_ID);
 
-  form.setDescription(UA.formDescription);
+  clearForm_(form);
+
+  form.setTitle(cfg.FORM_TITLE);
+  form.setDescription(FORM_DESCRIPTION);
   form.setProgressBar(true);
   form.setShuffleQuestions(false);
   form.setAllowResponseEdits(true);
   form.setLimitOneResponsePerUser(false);
-  form.setPublishingSummary(false);
+  form.setAcceptingResponses(true);
   if (cfg.COLLECT_EMAIL) { enableEmailCollection_(form); }
 
   var map = { hours: {} };
@@ -45,26 +49,25 @@ function createForm() {
   var pbNewProject = buildSectionNewProject_(form, map);
   var pbUsage = buildSectionUsage_(form, map);
   buildSectionMaturity_(form, map);
+
   var basisItem = null;
   var pbMeasured = null;
-  var pbEstimate = null;
-
   if (cfg.INCLUDE_MEASURED_HOURS_SECTION) {
     basisItem = buildSectionBasis_(form, map);
     pbMeasured = buildSectionMeasured_(form, map);
   }
-  pbEstimate = buildSectionEstimate_(form, map);
+  var pbEstimate = buildSectionEstimate_(form, map);
   buildSectionTools_(form, map, cfg);
 
-  // Navigation can only be wired once every target page exists.
+  // Переходи можна прописати лише після того, як усі цільові сторінки створені.
   wireProjectNavigation_(form, map, pbNewProject, pbUsage);
   pbNewProject.setGoToPage(pbUsage);
-  if (basisItem && pbMeasured && pbEstimate) {
+  if (basisItem && pbMeasured) {
     wireBasisNavigation_(basisItem, pbMeasured, pbEstimate);
     pbMeasured.setGoToPage(pbEstimate);
   }
 
-  form.setDestination(FormApp.DestinationType.SPREADSHEET, ss.getId());
+  ensureDestination_(form);
 
   var props = PropertiesService.getScriptProperties();
   props.setProperty(PROP.FORM_ID, form.getId());
@@ -74,40 +77,62 @@ function createForm() {
   return form;
 }
 
+/** Видаляє всі елементи форми. Зібрані раніше відповіді зберігаються. */
+function clearForm_(form) {
+  var items = form.getItems();
+  for (var i = items.length - 1; i >= 0; i--) {
+    form.deleteItem(items[i]);
+  }
+}
+
+/**
+ * Прив'язує форму до таблиці, лише якщо вона ще не прив'язана до потрібної.
+ * Повторний setDestination створив би зайвий аркуш відповідей.
+ */
+function ensureDestination_(form) {
+  var ss = getTargetSpreadsheet();
+  var current = null;
+  try { current = form.getDestinationId(); } catch (e) { current = null; }
+  if (current !== ss.getId()) {
+    form.setDestination(FormApp.DestinationType.SPREADSHEET, ss.getId());
+  }
+}
+
 function enableEmailCollection_(form) {
   try {
     form.setEmailCollectionType(FormApp.EmailCollectionType.VERIFIED);
   } catch (e) {
-    try { form.setCollectEmail(true); } catch (e2) { /* older/newer runtime: skip */ }
+    try { form.setCollectEmail(true); } catch (e2) { /* інша версія рантайму — пропускаємо */ }
   }
 }
 
 /* ------------------------------------------------------------------ */
-/* Section 1 — Project context                                         */
+/* Секція 1 — Контекст проєкту                                         */
 /* ------------------------------------------------------------------ */
 
 function buildSectionContext_(form, map) {
   var project = form.addListItem()
-    .setTitle('Project')
-    .setHelpText('Оберіть проєкт зі списку. Якщо вашого проєкту тут немає — оберіть "Other — not in the list".')
+    .setTitle('Проєкт')
+    .setHelpText('Оберіть проєкт зі списку. Якщо вашого проєкту тут немає — оберіть «' +
+                 PROJECT_OTHER + '».')
     .setRequired(true);
-  map.project = project.getId();   // choices are set later, once pages exist
+  map.project = project.getId();   // варіанти задаємо пізніше, коли є сторінки
 
   map.reporter = form.addTextItem()
-    .setTitle('Your name and role')
-    .setHelpText('Наприклад: Ivan Petrenko, QA Team Lead')
+    .setTitle('Ваше ім\'я та роль')
+    .setHelpText('Наприклад: Іван Петренко, QA Team Lead')
     .setRequired(true)
     .getId();
 
   map.period = form.addListItem()
-    .setTitle('Reporting period')
+    .setTitle('Звітний період')
     .setHelpText('Період, за який ви оцінюєте використання AI на проєкті.')
     .setChoiceValues(PERIODS)
     .setRequired(true)
     .getId();
 
   map.approach = form.addMultipleChoiceItem()
-    .setTitle('Testing approach on the project')
+    .setTitle('Підхід до тестування на проєкті')
     .setHelpText('Впливає на те, які AI-можливості взагалі застосовні на проєкті ' +
                  '(Applicability Matrix, розділ 1.3 фреймворку).')
     .setChoiceValues(TESTING_APPROACHES)
@@ -115,47 +140,35 @@ function buildSectionContext_(form, map) {
     .getId();
 
   map.productType = form.addCheckboxItem()
-    .setTitle('Product type')
+    .setTitle('Тип продукту')
     .setHelpText('Можна обрати кілька варіантів.')
     .setChoiceValues(PRODUCT_TYPES)
     .setRequired(true)
     .getId();
 
   map.dataConstraints = form.addMultipleChoiceItem()
-    .setTitle('Data & privacy constraints (framework section 5, Governance)')
-    .setHelpText('Чи дозволяє клієнт передавати артефакти проєкту в AI-інструменти. ' +
-                 'Заборона за NDA — поширена і цілком легітимна причина, чому AI на проєкті не застосовується.')
+    .setTitle('Обмеження щодо даних і приватності')
+    .setHelpText('Чи дозволяє клієнт передавати артефакти проєкту в AI-інструменти ' +
+                 '(розділ 5 фреймворку, Data & Privacy Governance). Заборона за NDA — ' +
+                 'поширена і цілком легітимна причина, чому AI на проєкті не застосовується.')
     .setChoiceValues(DATA_CONSTRAINTS)
     .setRequired(true)
     .getId();
 }
 
 /* ------------------------------------------------------------------ */
-/* Section 1b — New project (shown only when "Other" is picked)        */
+/* Секція 1b — Новий проєкт (лише після вибору «Інший»)                */
 /* ------------------------------------------------------------------ */
 
 function buildSectionNewProject_(form, map) {
   var pb = form.addPageBreakItem()
-    .setTitle('New project details')
-    .setHelpText('Цю секцію заповнюють лише ті, хто обрав "Other — not in the list". ' +
+    .setTitle('Новий проєкт')
+    .setHelpText('Цю секцію заповнюють лише ті, хто обрав «' + PROJECT_OTHER + '». ' +
                  'Для проєкту буде створено новий рядок у таблиці.');
 
   map.newProjectName = form.addTextItem()
-    .setTitle('Project name')
+    .setTitle('Назва проєкту')
     .setHelpText('Назва так, як вона має з\'явитися у зведеній таблиці.')
-    .setRequired(true)
-    .getId();
-
-  map.newProjectAm = form.addMultipleChoiceItem()
-    .setTitle('Account manager')
-    .setChoiceValues(ACCOUNT_MANAGERS)
-    .setRequired(true)
-    .getId();
-
-  map.newProjectModel = form.addMultipleChoiceItem()
-    .setTitle('Contract model')
-    .setHelpText('DT — dedicated team, TM — time & material.')
-    .setChoiceValues(CONTRACT_MODELS)
     .setRequired(true)
     .getId();
 
@@ -163,25 +176,25 @@ function buildSectionNewProject_(form, map) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Section 2 — AI usage per phase (the core question)                  */
+/* Секція 2 — Використання AI по фазах (ядро форми)                    */
 /* ------------------------------------------------------------------ */
 
 function buildSectionUsage_(form, map) {
   var pb = form.addPageBreakItem()
-    .setTitle('AI usage per STLC phase')
+    .setTitle('Використання AI по фазах STLC')
     .setHelpText(
       'Для кожної з 8 фаз вкажіть, чи використовуєте ви AI — і чи це взагалі можливо на вашому проєкті.\n\n' +
       'Підказки з Applicability Matrix (розділ 1.3 фреймворку):\n' +
-      '• Мануальні проєкти: Environment Setup застосовний лише частково (генерація синтетичних даних); ' +
-      'Test Execution — лише smart prioritisation, бо visual AI потребує автоматизації; ' +
-      'Test Automation при нульовому automation baseline дає ефект через 9–12 місяців.\n' +
-      '• Desktop-продукти: Environment Setup — лише за наявності бекенду або тестової БД; ' +
-      'Visual Regression не застосовний без web-оболонки.\n' +
-      '• Defect Management: Jira AI доступний лише в Jira Cloud; на Server/DC — Claude як заміна.');
+      '• Мануальні проєкти: налаштування середовища застосовне лише частково (генерація ' +
+      'синтетичних даних); виконання тестів — лише розумна пріоритизація, бо visual AI ' +
+      'потребує автоматизації; автоматизація при нульовому baseline дає ефект через 9–12 місяців.\n' +
+      '• Desktop-продукти: налаштування середовища — лише за наявності бекенду або тестової БД; ' +
+      'visual regression не застосовний без web-оболонки.\n' +
+      '• Робота з дефектами: Jira AI доступний лише в Jira Cloud; на Server/DC — Claude як заміна.');
 
   map.usageGrid = form.addGridItem()
-    .setTitle('Do you use AI in this phase — and is it even possible on this project?')
-    .setHelpText('Оберіть один варіант у кожному рядку. Відповідь "No" з причиною — ' +
+    .setTitle('Чи використовуєте ви AI на цій фазі — і чи це взагалі можливо на цьому проєкті?')
+    .setHelpText('Оберіть один варіант у кожному рядку. Відповідь «Ні» з причиною — ' +
                  'це повноцінна відповідь, вона так і буде відображена в таблиці.')
     .setRows(PHASES.map(function (p) { return p.short; }))
     .setColumns(statusLabels())
@@ -192,22 +205,22 @@ function buildSectionUsage_(form, map) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Section 3 — AI maturity                                             */
+/* Секція 3 — Зрілість використання AI                                 */
 /* ------------------------------------------------------------------ */
 
 function buildSectionMaturity_(form, map) {
   var pb = form.addPageBreakItem()
-    .setTitle('AI maturity per phase')
+    .setTitle('Зрілість використання AI')
     .setHelpText(
       'Самооцінка за шкалою 0–3 з розділу 3 фреймворку. Сума по 8 фазах (0–24) дає рівень зрілості:\n' +
-      'L0 = 0–4 · L1 = 5–8 · L2 = 9–14 · L3 = 15–19 (★ цільовий рівень TestFort) · L4 = 20–24.\n' +
-      'Ці бали не впливають на колонку "Actual, %" — вони пишуться на окремий аркуш "AI Maturity".');
+      'L0 = 0–4 · L1 = 5–8 · L2 = 9–14 · L3 = 15–19 (★ цільовий рівень) · L4 = 20–24.\n' +
+      'Ці бали не впливають на колонку «Actual, %» — вони пишуться на окремий аркуш «Зрілість AI».');
 
   map.maturityGrid = form.addGridItem()
-    .setTitle('AI maturity level per phase (0–3)')
+    .setTitle('Рівень зрілості використання AI по фазах (0–3)')
     .setHelpText('0 — фаза виконується повністю вручну; 1 — пробували AI 1–2 рази, процесу немає; ' +
-                 '2 — AI використовується систематично, є описаний процес або спільна бібліотека промптів; ' +
-                 '3 — те саме плюс виміряні gains і квартальний перегляд підходу.')
+                 '2 — AI використовується систематично, є описаний процес або спільна бібліотека ' +
+                 'промптів; 3 — те саме плюс виміряний ефект і квартальний перегляд підходу.')
     .setRows(PHASES.map(function (p) { return p.short; }))
     .setColumns(MATURITY_OPTIONS)
     .setRequired(true)
@@ -217,20 +230,20 @@ function buildSectionMaturity_(form, map) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Section 4 — Reporting basis gate                                    */
+/* Секція 4 — На основі чого звітуєте                                  */
 /* ------------------------------------------------------------------ */
 
 function buildSectionBasis_(form, map) {
   form.addPageBreakItem()
-    .setTitle('How can you report the impact?')
-    .setHelpText('Принцип фреймворку: "Measure before and after. No baseline = no proof of value." ' +
+    .setTitle('На основі чого ви можете оцінити ефект')
+    .setHelpText('Принцип фреймворку: «Measure before and after. No baseline = no proof of value.» ' +
                  'Якщо точних замірів немає — це нормально: оцінимо діапазоном, ' +
                  'а в таблиці позначимо рівень довіри до цифри.');
 
   var item = form.addMultipleChoiceItem()
-    .setTitle('How can you report the impact?')
-    .setHelpText('Якщо цифри є лише по частині фаз — оберіть перший варіант: ' +
-                 'ви зможете ввести години там, де вони є, і оцінити діапазоном решту.')
+    .setTitle('На основі чого ви можете оцінити ефект?')
+    .setHelpText('Якщо цифри є лише по частині фаз — оберіть перший варіант: ви зможете ввести ' +
+                 'години там, де вони є, і оцінити діапазоном решту.')
     .setRequired(true);
 
   map.basis = item.getId();
@@ -238,12 +251,12 @@ function buildSectionBasis_(form, map) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Section 5 — Measured data (optional, one field per phase)           */
+/* Секція 5 — Виміряні дані (усі поля опційні)                         */
 /* ------------------------------------------------------------------ */
 
 function buildSectionMeasured_(form, map) {
   var pb = form.addPageBreakItem()
-    .setTitle('Measured data — baseline vs with AI')
+    .setTitle('Виміряні дані — було / з AI')
     .setHelpText(
       'Заповнюйте лише ті фази, де у вас є реальні заміри. Усі поля опційні.\n' +
       'Формат: «було / стало», два числа через слеш. Наприклад: 12 / 8.\n' +
@@ -251,12 +264,13 @@ function buildSectionMeasured_(form, map) {
 
   for (var i = 0; i < PHASES.length; i++) {
     var p = PHASES[i];
-    var help = 'Одиниця: ' + p.unit + '. Приклад: ' + p.example + '.';
+    var help = 'Одиниця виміру: ' + p.unit + '. Приклад: ' + p.example + '.';
     if (p.sign > 0) {
-      help += ' Увага: тут більше = краще — скільки тест-кейсів на годину виконували раніше і скільки з AI.';
+      help += ' Увага: тут більше = краще — скільки тест-кейсів на годину проходили раніше ' +
+              'і скільки з AI.';
     }
     var validation = FormApp.createTextValidation()
-      .setHelpText('Формат: baseline / with AI, напр. ' + p.example + ' — два числа через слеш.')
+      .setHelpText('Формат: було / з AI, напр. ' + p.example + ' — два числа через слеш.')
       .requireTextMatchesPattern(HOURS_PATTERN)
       .build();
 
@@ -272,22 +286,22 @@ function buildSectionMeasured_(form, map) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Section 6 — Self-assessed impact (fallback without a baseline)      */
+/* Секція 6 — Самооцінка ефекту (фолбек без baseline)                  */
 /* ------------------------------------------------------------------ */
 
 function buildSectionEstimate_(form, map) {
   var pb = form.addPageBreakItem()
-    .setTitle('Self-assessed impact')
+    .setTitle('Самооцінка ефекту')
     .setHelpText(
       'Оцініть ВЕЛИЧИНУ покращення порівняно з тим, як працювали до AI.\n' +
-      'Для Test Execution це приріст пропускної здатності (більше = краще), ' +
+      'Для фази «Виконання тестів» це приріст пропускної здатності (більше = краще), ' +
       'для решти фаз — скорочення витраченого часу. Знак (мінус/плюс) підставиться автоматично.\n' +
       'Якщо для фази ви вже ввели години в попередній секції — вони мають пріоритет над цією оцінкою.');
 
   map.estimateGrid = form.addGridItem()
-    .setTitle('Estimated improvement vs your pre-AI baseline')
+    .setTitle('Оцінене покращення порівняно зі станом до AI')
     .setHelpText('Оберіть один варіант у кожному рядку. Для фаз, де AI не використовується ' +
-                 'або неможливий, оберіть "Not applicable".')
+                 'або неможливий, оберіть «Не застосовно».')
     .setRows(PHASES.map(function (p) { return p.short; }))
     .setColumns(BUCKET_ORDER)
     .setRequired(true)
@@ -297,16 +311,16 @@ function buildSectionEstimate_(form, map) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Section 7 — Tools, quality signals, feedback                        */
+/* Секція 7 — Інструменти, сигнали якості, зворотний зв'язок           */
 /* ------------------------------------------------------------------ */
 
 function buildSectionTools_(form, map, cfg) {
   var pb = form.addPageBreakItem()
-    .setTitle('Tools, quality signals & feedback')
+    .setTitle('Інструменти та зворотний зв\'язок')
     .setHelpText('Останній блок. Питання про відсотки — опційні, заповнюйте лише якщо ці цифри у вас є.');
 
   var tools = form.addCheckboxItem()
-    .setTitle('Which AI tool categories did you actually use this period?')
+    .setTitle('Які категорії AI-інструментів ви реально використовували цього періоду?')
     .setHelpText('Категорії з розділу 1.2 фреймворку. Можна обрати кілька.')
     .setChoiceValues(TOOL_CATEGORIES)
     .setRequired(true);
@@ -316,39 +330,38 @@ function buildSectionTools_(form, map, cfg) {
   if (cfg.INCLUDE_EXTRA_METRICS) {
     map.acceptanceRate = addPercentItem_(
       form,
-      'AI-generated test case acceptance rate, %',
-      'Частка AI-згенерованих тест-кейсів, прийнятих без правок. ' +
+      'Частка AI-згенерованих тест-кейсів, прийнятих без правок, %',
       'Ціль фреймворку: ≥ 70%. Нижче 50% — сигнал, що промпти потребують доопрацювання.');
 
     map.hallucinationRate = addPercentItem_(
       form,
-      'AI hallucination / rework rate on AI outputs, %',
+      'Частка галюцинацій / переробок в AI-артефактах, %',
       'Частка AI-артефактів (тест-кейсів, баг-репортів), у яких під час рев\'ю знайшли ' +
       'фактичні помилки або вигадані кроки. Типово 3–8% для хмарних LLM.');
 
     map.automationCoverage = addPercentItem_(
       form,
-      'Automation coverage, %',
-      'Automated TCs / Total TCs in suite × 100. Якщо автоматизації немає — вкажіть 0.');
+      'Покриття автоматизацією, %',
+      'Автоматизовані ТК / усі ТК у наборі × 100. Якщо автоматизації немає — вкажіть 0.');
   }
 
   map.confidence = form.addMultipleChoiceItem()
-    .setTitle('Confidence in the figures you reported')
+    .setTitle('Рівень довіри до наведених вами цифр')
     .setHelpText('Рівень довіри записується в примітку до кожної заповненої комірки таблиці — ' +
-                 'це захист від того, щоб оцінки читалися як точні заміри.')
+                 'це захист від того, щоб оцінка читалася як точний замір.')
     .setChoiceValues(CONFIDENCE_OPTIONS)
     .setRequired(true)
     .getId();
 
   map.blockers = form.addParagraphTextItem()
-    .setTitle('Main blockers to AI adoption and what support you need')
-    .setHelpText('Наприклад: немає доступу до інструменту, заборона клієнта, бракує часу на навчання, ' +
-                 'потрібні готові промпти під домен.')
+    .setTitle('Основні блокери впровадження AI і яка підтримка потрібна')
+    .setHelpText('Наприклад: немає доступу до інструменту, заборона клієнта, бракує часу на ' +
+                 'навчання, потрібні готові промпти під домен.')
     .setRequired(false)
     .getId();
 
   map.win = form.addParagraphTextItem()
-    .setTitle('Best AI win this period (1–2 sentences)')
+    .setTitle('Найкращий кейс використання AI за цей період (1–2 речення)')
     .setHelpText('Короткий кейс, який варто показати іншим командам.')
     .setRequired(false)
     .getId();
@@ -370,7 +383,7 @@ function addPercentItem_(form, title, help) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Navigation                                                          */
+/* Переходи між секціями                                               */
 /* ------------------------------------------------------------------ */
 
 function wireProjectNavigation_(form, map, pbNewProject, pbUsage) {

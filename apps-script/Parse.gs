@@ -1,14 +1,14 @@
 /**
- * Parse.gs — turns a raw Google Forms response into one canonical object.
+ * Parse.gs — перетворює сиру відповідь Google Forms на один канонічний об'єкт.
  *
- * Answers are looked up by item ID from the ITEM_MAP script property, so the
- * mapping survives any re-wording of the questions in the form UI.
+ * Відповіді шукаються за ID елементів із властивості ITEM_MAP, тому мапінг
+ * переживає будь-яку зміну формулювань у формі.
  */
 
 function getItemMap() {
   var raw = PropertiesService.getScriptProperties().getProperty(PROP.ITEM_MAP);
   if (!raw) {
-    throw new Error('ITEM_MAP is missing. Run "AI STLC ▸ Setup" (or Rebuild form) first.');
+    throw new Error('Немає ITEM_MAP. Спочатку запустіть «AI STLC ▸ Наповнити форму».');
   }
   return JSON.parse(raw);
 }
@@ -35,11 +35,7 @@ function parseSubmission(formResponse) {
   var isNew = (projectRaw === PROJECT_OTHER);
   var newProject = null;
   if (isNew) {
-    newProject = {
-      name: trimOrEmpty_(get(map.newProjectName)),
-      am: trimOrEmpty_(get(map.newProjectAm)),
-      model: trimOrEmpty_(get(map.newProjectModel))
-    };
+    newProject = { name: trimOrEmpty_(get(map.newProjectName)) };
   }
 
   var effectiveName = isNew ? (newProject.name || 'Unnamed project') : projectRaw;

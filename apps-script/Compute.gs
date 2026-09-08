@@ -1,12 +1,12 @@
 /**
- * Compute.gs — turns one phase's answers into the value written to "Actual, %".
+ * Compute.gs — перетворює відповіді по одній фазі на значення для «Actual, %».
  *
- * Source priority: measured hours > self-assessed bucket > status label.
- * Sign convention (framework section 6.1 and the sheet's Legend tab):
- *   phases 1-4, 6-8  improvement is a REDUCTION  -> negative fraction
- *   phase 5          improvement is THROUGHPUT   -> positive fraction
- * Values are fractions (-0.30), never whole percents (-30): the sheet's Target
- * cells store -0.3 with a percent number format and Actual must match.
+ * Пріоритет джерел: виміряні години > оцінка діапазоном > текстова мітка статусу.
+ * Знак (розділ 6.1 фреймворку і аркуш Legend & Sources):
+ *   фази 1–4, 6–8  покращення = СКОРОЧЕННЯ    -> від'ємна частка
+ *   фаза 5         покращення = ПРОПУСКНА ЗД. -> додатна частка
+ * Значення — саме частки (-0.30), а не цілі відсотки (-30): у комірках Target
+ * лежить -0.3 з відсотковим форматом, і Actual має бути в тому ж вигляді.
  */
 
 /**
@@ -20,57 +20,57 @@ function computeActual(phaseData, cfg) {
   var warnings = [];
   var status = phaseData.status;
 
-  // Step 0 — "not possible" always wins over any number that may have been typed.
+  // Крок 0 — «неможливо» перекриває будь-яке введене число.
   if (status && !STATUSES[status].numeric) {
     if (status !== 'NOT_YET' && phaseData.hours) {
-      warnings.push(phase.short + ': marked "' + STATUSES[status].label +
-                    '" but hours were also provided (' + phaseData.hoursRaw + ') — hours ignored.');
+      warnings.push(phase.short + ': позначено «' + STATUSES[status].label +
+                    '», але водночас введено години (' + phaseData.hoursRaw + ') — години проігноровано.');
     }
     return { value: null, text: STATUSES[status].cell, source: 'status', warnings: warnings };
   }
 
   if (!status) {
-    warnings.push(phase.short + ': AI usage status is missing — nothing written.');
+    warnings.push(phase.short + ': не вказано статус використання AI — нічого не записано.');
     return { value: null, text: null, source: 'none', warnings: warnings };
   }
 
-  // Step 2 — measured hours.
+  // Крок 2 — виміряні години.
   if (phaseData.hours) {
     var b = phaseData.hours.baseline;
     var a = phaseData.hours.ai;
     if (b === 0) {
-      warnings.push(phase.short + ': baseline is 0, cannot compute a percentage — falling back to the estimate.');
+      warnings.push(phase.short + ': baseline = 0, відсоток порахувати неможливо — беремо оцінку діапазоном.');
     } else {
       var raw = (phase.sign > 0) ? (a - b) / b : -((b - a) / b);
       return finalise_(raw, 'measured', phase, warnings, cfg);
     }
   }
 
-  // Step 3 — self-assessed bucket.
+  // Крок 3 — самооцінка діапазоном.
   var mid = BUCKETS[phaseData.bucketLabel];
   if (mid !== undefined && mid !== null) {
     var v = (phase.sign > 0) ? mid : -mid;
     return finalise_(v, 'estimated', phase, warnings, cfg);
   }
 
-  // Step 4 — used, but nothing quantified.
+  // Крок 4 — використовують, але нічого не виміряли.
   return { value: null, text: LABEL_PENDING, source: 'pending', warnings: warnings };
 }
 
 function finalise_(raw, source, phase, warnings, cfg) {
   var value = Math.round(raw * 1000) / 1000;
   if (Math.abs(value) > cfg.OUTLIER_THRESHOLD) {
-    warnings.push(phase.short + ': computed ' + formatPercent(value) +
-                  ' looks like an outlier — verify the input numbers.');
+    warnings.push(phase.short + ': розраховано ' + formatPercent(value) +
+                  ' — схоже на викид, перевірте введені числа.');
   }
   if ((phase.sign > 0 && value < 0) || (phase.sign < 0 && value > 0)) {
-    warnings.push(phase.short + ': the numbers describe a regression vs baseline (' +
+    warnings.push(phase.short + ': числа описують регресію відносно baseline (' +
                   formatPercent(value) + ').');
   }
   return { value: value, text: null, source: source, warnings: warnings };
 }
 
-/** True when Actual meets or beats Target, respecting the phase's direction. */
+/** true, якщо Actual досягає або перевищує Target з урахуванням напрямку фази. */
 function meetsTarget(phase, value) {
   if (value === null || value === undefined) { return null; }
   return (phase.sign > 0) ? (value >= phase.target) : (value <= phase.target);

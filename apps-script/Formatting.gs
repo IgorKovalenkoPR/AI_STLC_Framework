@@ -29,9 +29,9 @@ function applyFormatting() {
   var actualCols = {};
   for (var i = 0; i < PHASES.length; i++) { actualCols[PHASES[i].actualCol] = true; }
 
-  // Drop every rule that touches an Actual column — our own from a previous run and
-  // any wide rule inherited from the .xlsx import, which would otherwise win by order
-  // and mask the text-label colours. Rules on other columns are left untouched.
+  // Знімаємо всі правила, що зачіпають колонки Actual: і власні з попереднього
+  // запуску, і широкі правила, успадковані з .xlsx (інакше вони вигравали б за
+  // порядком і перекривали кольори текстових міток). Інші колонки не чіпаємо.
   var kept = sheet.getConditionalFormatRules().filter(function (rule) {
     var ranges = rule.getRanges();
     for (var r = 0; r < ranges.length; r++) {

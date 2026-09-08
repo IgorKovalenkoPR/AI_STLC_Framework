@@ -63,8 +63,8 @@ function selfTestCases_() {
     { name: 'Ph5 bucket 20-30% keeps a positive sign',
       data: fixture_('p5', { status: 'USED_UNMEASURED', bucket: '20–30%' }),
       expect: { value: 0.25, source: 'estimated', meets: true } },
-    { name: 'Ph8 bucket "No change (0%)" -> 0, misses target',
-      data: fixture_('p8', { status: 'USED_UNMEASURED', bucket: 'No change (0%)' }),
+    { name: 'Ph8 bucket "Без змін (0%)" -> 0, misses target',
+      data: fixture_('p8', { status: 'USED_UNMEASURED', bucket: 'Без змін (0%)' }),
       expect: { value: 0, source: 'estimated', meets: false } },
 
     // --- the "not used / not possible" answers the form is built around ----
@@ -89,7 +89,7 @@ function selfTestCases_() {
 
     // --- used but nothing quantified ---------------------------------------
     { name: 'Used but no data -> "Data pending"',
-      data: fixture_('p6', { status: 'USED_UNMEASURED', bucket: 'Not applicable' }),
+      data: fixture_('p6', { status: 'USED_UNMEASURED', bucket: 'Не застосовно' }),
       expect: { text: LABEL_PENDING, source: 'pending' } },
     { name: 'Missing status -> nothing written',
       data: fixture_('p3', {}),

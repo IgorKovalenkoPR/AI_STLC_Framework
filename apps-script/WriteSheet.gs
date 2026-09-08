@@ -1,18 +1,17 @@
 /**
- * WriteSheet.gs — locating the project row and writing the "Actual, %" cells.
+ * WriteSheet.gs — пошук рядка проєкту і запис у колонки «Actual, %».
  *
- * The main sheet keeps its original A1:T shape: rows 1-3 are the merged header
- * block, data starts at row 4, and every phase owns a Target/Actual column pair.
- * New projects are appended below the last data row so the header block is never
- * touched.
+ * Аркуш зберігає вихідну форму A1:T: рядки 1–3 — об'єднаний заголовок, дані з
+ * рядка 4, на кожну фазу — пара колонок Target/Actual. Нові проєкти дописуються
+ * знизу, тому заголовок ніколи не зачіпається.
  */
 
 function getMainSheet_() {
   var cfg = getConfig();
-  var sheet = SpreadsheetApp.getActive().getSheetByName(cfg.SHEET_NAME);
+  var sheet = getTargetSpreadsheet().getSheetByName(cfg.SHEET_NAME);
   if (!sheet) {
-    throw new Error('Sheet "' + cfg.SHEET_NAME + '" not found. ' +
-                    'Set the SHEET_NAME script property to the correct tab name.');
+    throw new Error('Аркуш «' + cfg.SHEET_NAME + '» не знайдено. ' +
+                    'Задайте правильну назву у властивості скрипта SHEET_NAME.');
   }
   return sheet;
 }
@@ -28,7 +27,7 @@ function lastDataRow_(sheet) {
   return last;
 }
 
-/** @return {number} 1-based row, or -1 when the project is not in the sheet. */
+/** @return {number} 1-based рядок або -1, якщо проєкту в таблиці немає. */
 function findProjectRow(sheet, projectName) {
   var cfg = getConfig();
   var wanted = normaliseProjectName(resolveProjectName(projectName));
@@ -43,26 +42,24 @@ function findProjectRow(sheet, projectName) {
 }
 
 /**
- * Appends a row for a project the sheet does not know yet, copying formatting
- * and the Target values from the first data row.
- * @return {number} the new row index
+ * Дописує рядок для проєкту, якого немає в таблиці: копіює формати і Target-значення
+ * з першого рядка даних. Акаунт-менеджер і модель контракту лишаються порожніми —
+ * форма їх не питає, це зона відповідальності менеджера.
+ * @return {number} індекс нового рядка
  */
 function appendProjectRow_(sheet, submission) {
   var cfg = getConfig();
-  var last = lastDataRow_(sheet);
-  var newRow = last + 1;
+  var newRow = lastDataRow_(sheet) + 1;
   if (newRow > sheet.getMaxRows()) { sheet.insertRowsAfter(sheet.getMaxRows(), 1); }
 
-  // Copy the whole template row (formats only) so borders and % formats carry over.
   sheet.getRange(cfg.FIRST_DATA_ROW, 1, 1, 20)
        .copyTo(sheet.getRange(newRow, 1, 1, 20), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
 
   sheet.getRange(newRow, cfg.COL_NUM).setValue(newRow - cfg.FIRST_DATA_ROW + 1);
   sheet.getRange(newRow, cfg.COL_PROJECT).setValue(submission.newProject.name);
-  sheet.getRange(newRow, cfg.COL_AM).setValue(submission.newProject.am);
-  sheet.getRange(newRow, cfg.COL_MODEL).setValue(submission.newProject.model);
+  sheet.getRange(newRow, cfg.COL_AM).clearContent();
+  sheet.getRange(newRow, cfg.COL_MODEL).clearContent();
 
-  // Seed the Target columns from the framework defaults, clear the Actual ones.
   for (var i = 0; i < PHASES.length; i++) {
     var p = PHASES[i];
     sheet.getRange(newRow, p.targetCol).setValue(p.target).setNumberFormat(cfg.NUMBER_FORMAT);
@@ -72,21 +69,21 @@ function appendProjectRow_(sheet, submission) {
 }
 
 /**
- * Writes one submission into the sheet.
+ * Записує одну відповідь у таблицю.
  * @return {{row:number, action:string, warnings:string[], written:Object}}
  */
 function applySubmission(submission) {
   var cfg = getConfig();
   var sheet = getMainSheet_();
   var warnings = [];
-  var action = 'UPDATE';
+  var action = 'ЗАПИС';
 
   if (submission.period && cfg.ACTIVE_PERIOD && submission.period !== cfg.ACTIVE_PERIOD) {
-    // The main sheet always shows the active period; older periods are logged only.
+    // Основна таблиця завжди показує активний період; інші лише логуються.
     return {
-      row: -1, action: 'ARCHIVED_ONLY',
-      warnings: ['Reported period "' + submission.period + '" differs from the active period "' +
-                 cfg.ACTIVE_PERIOD + '" — the main sheet was not modified.'],
+      row: -1, action: 'ІНШИЙ ПЕРІОД',
+      warnings: ['Період відповіді «' + submission.period + '» не збігається з активним «' +
+                 cfg.ACTIVE_PERIOD + '» — основну таблицю не змінено.'],
       written: {}
     };
   }
@@ -95,21 +92,21 @@ function applySubmission(submission) {
 
   if (row === -1 && submission.isNewProject) {
     row = appendProjectRow_(sheet, submission);
-    action = 'NEW_PROJECT';
+    action = 'НОВИЙ ПРОЄКТ';
   } else if (row === -1) {
     return {
-      row: -1, action: 'PROJECT_NOT_FOUND',
-      warnings: ['Project "' + submission.projectName + '" was not found in column B and the response ' +
-                 'was not marked as a new project. Nothing was written.'],
+      row: -1, action: 'ПРОЄКТ НЕ ЗНАЙДЕНО',
+      warnings: ['Проєкт «' + submission.projectName + '» не знайдено в колонці B, ' +
+                 'і відповідь не позначена як новий проєкт. Нічого не записано.'],
       written: {}
     };
   } else if (submission.isNewProject) {
-    warnings.push('Project "' + submission.newProject.name + '" was submitted as new but matches ' +
-                  'existing row ' + row + ' — the existing row was updated (FUZZY_MATCH).');
+    warnings.push('Проєкт «' + submission.newProject.name + '» подано як новий, але він збігається ' +
+                  'з наявним рядком ' + row + ' — оновлено наявний рядок (нечіткий збіг).');
   }
 
   var previous = readActualRow_(sheet, row);
-  if (hasAnyValue_(previous)) { action = (action === 'NEW_PROJECT') ? action : 'OVERWRITE'; }
+  if (hasAnyValue_(previous) && action !== 'НОВИЙ ПРОЄКТ') { action = 'ПЕРЕЗАПИС'; }
 
   var written = {};
   for (var i = 0; i < PHASES.length; i++) {
@@ -126,7 +123,7 @@ function applySubmission(submission) {
       cell.setNumberFormat(cfg.TEXT_FORMAT).setValue(result.text);
       written[phase.key] = result.text;
     } else {
-      written[phase.key] = '(unchanged)';
+      written[phase.key] = '(без змін)';
       continue;
     }
     cell.setNote(buildCellNote_(submission, data, result));
@@ -150,69 +147,70 @@ function hasAnyValue_(obj) {
   return false;
 }
 
-/** The audit trail lives in the cell note, so the sheet keeps its A1:T shape. */
+/** Аудит живе у примітці до комірки, тому таблиця зберігає форму A1:T. */
 function buildCellNote_(submission, data, result) {
   var lines = [];
   if (result.value !== null) {
-    lines.push('Actual: ' + formatPercent(result.value) + ' (' + result.source + ')');
+    lines.push('Actual: ' + formatPercent(result.value) +
+               (result.source === 'measured' ? ' (заміри)' : ' (оцінка)'));
     var ok = meetsTarget(data.phase, result.value);
-    lines.push('Target: ' + formatPercent(data.phase.target) + ' — ' + (ok ? 'met' : 'not met'));
+    lines.push('Target: ' + formatPercent(data.phase.target) + ' — ' + (ok ? 'досягнуто' : 'не досягнуто'));
   } else {
     lines.push('Actual: ' + result.text);
   }
   if (data.hours) {
-    lines.push('Source: ' + data.hoursRaw + ' (' + data.phase.unit + ')');
+    lines.push('Джерело: ' + data.hoursRaw + ' (' + data.phase.unit + ')');
   } else if (result.source === 'estimated') {
-    lines.push('Source: self-assessed range "' + data.bucketLabel + '"');
+    lines.push('Джерело: самооцінка «' + data.bucketLabel + '»');
   }
-  lines.push('Status: ' + (data.statusLabel || 'n/a'));
-  if (data.maturityLabel) { lines.push('Maturity: ' + data.maturityLabel); }
-  if (submission.confidence) { lines.push('Confidence: ' + submission.confidence); }
-  lines.push('Period: ' + submission.period);
-  lines.push('Submitted: ' + Utilities.formatDate(submission.timestamp,
+  lines.push('Статус: ' + (data.statusLabel || 'не вказано'));
+  if (data.maturityLabel) { lines.push('Зрілість: ' + data.maturityLabel); }
+  if (submission.confidence) { lines.push('Довіра: ' + submission.confidence); }
+  lines.push('Період: ' + submission.period);
+  lines.push('Подано: ' + Utilities.formatDate(submission.timestamp,
               Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm') +
-             (submission.email ? ' by ' + submission.email : ''));
-  if (submission.reporter) { lines.push('Reported by: ' + submission.reporter); }
-  lines.push('Response ID: ' + submission.responseId);
+             (submission.email ? ' — ' + submission.email : ''));
+  if (submission.reporter) { lines.push('Автор: ' + submission.reporter); }
+  lines.push('ID відповіді: ' + submission.responseId);
   return lines.join('\n');
 }
 
 /**
- * Cross-checks the answers against the framework's Applicability Matrix (1.3).
- * Nothing is blocked — implausible combinations are surfaced to the QA manager.
+ * Звіряє відповіді з Applicability Matrix (розділ 1.3) і Governance (розділ 5).
+ * Нічого не блокує — неправдоподібні комбінації показуються QA-менеджеру.
  */
 function applicabilityWarnings_(submission) {
   var out = [];
-  var manual = (submission.approach === 'Manual only');
+  var manual = (submission.approach === TESTING_APPROACHES[0]);
   var used = function (key) {
     var s = submission.phases[key].status;
     return s === 'USED_MEASURED' || s === 'USED_UNMEASURED';
   };
 
   if (manual && used('p8')) {
-    out.push('Manual-only project reports AI usage in Test Automation — verify with the team lead.');
+    out.push('Мануальний проєкт заявляє використання AI в автоматизації тестування — перепитати тім-ліда.');
   }
   if (manual && used('p4')) {
-    out.push('Manual-only project reports AI usage in Environment Setup — the framework limits this ' +
-             'to synthetic data generation. Verify what was actually measured.');
+    out.push('Мануальний проєкт заявляє використання AI у налаштуванні середовища — фреймворк ' +
+             'обмежує це генерацією синтетичних даних. Уточнити, що саме вимірювали.');
   }
-  if (submission.dataConstraints === 'Prohibited by NDA or client policy') {
+  if (submission.dataConstraints === DATA_CONSTRAINTS[2]) {
     var anyUsed = false;
     for (var i = 0; i < PHASES.length; i++) { if (used(PHASES[i].key)) { anyUsed = true; } }
     if (anyUsed) {
-      out.push('AI usage reported while the project is marked as NDA-prohibited — ' +
-               'confirm which tools were approved (framework section 5).');
+      out.push('Заявлено використання AI, хоча проєкт позначено як заборонений за NDA — ' +
+               'уточнити, які інструменти погоджені (розділ 5 фреймворку).');
     }
   }
   return out;
 }
 
 /* ------------------------------------------------------------------ */
-/* Service sheets                                                      */
+/* Службові аркуші                                                     */
 /* ------------------------------------------------------------------ */
 
 function ensureSheet_(name, headers) {
-  var ss = SpreadsheetApp.getActive();
+  var ss = getTargetSpreadsheet();
   var sheet = ss.getSheetByName(name);
   if (!sheet) {
     sheet = ss.insertSheet(name);
@@ -224,8 +222,8 @@ function ensureSheet_(name, headers) {
   return sheet;
 }
 
-var LOG_HEADERS = ['Timestamp', 'Response ID', 'Email', 'Reporter', 'Project', 'Row', 'Period',
-                   'Action', 'Written values', 'Previous values', 'Warnings'];
+var LOG_HEADERS = ['Час', 'ID відповіді', 'Email', 'Автор', 'Проєкт', 'Рядок', 'Період',
+                   'Дія', 'Записані значення', 'Попередні значення', 'Попередження'];
 
 function logSubmission_(submission, result) {
   var sheet = ensureSheet_(getConfig().LOG_SHEET, LOG_HEADERS);

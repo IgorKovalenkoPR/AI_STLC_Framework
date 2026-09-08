@@ -7,9 +7,9 @@
  */
 
 function maturityHeaders_() {
-  var h = ['Project', 'Period'];
+  var h = ['Проєкт', 'Період'];
   for (var i = 0; i < PHASES.length; i++) { h.push(PHASES[i].short); }
-  h.push('TOTAL (0–24)', 'Level', 'Level description', 'Updated', 'Reporter');
+  h.push('Сума (0–24)', 'Рівень', 'Опис рівня', 'Оновлено', 'Хто подав');
   return h;
 }
 
@@ -35,7 +35,7 @@ function writeMaturity(submission) {
     else { scores.push(s); total += s; }
   }
 
-  var level = complete ? levelForScore_(total) : { level: 'incomplete', desc: 'Not all phases scored.' };
+  var level = complete ? levelForScore_(total) : { level: 'неповно', desc: 'Оцінено не всі фази.' };
   var row = [submission.projectName, submission.period]
     .concat(scores)
     .concat([complete ? total : '', level.level, level.desc, new Date(), submission.reporter]);

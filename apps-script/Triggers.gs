@@ -1,10 +1,10 @@
 /**
- * Triggers.gs — setup entry point and the form-submit handler.
+ * Triggers.gs — точка входу та обробник надсилання форми.
  */
 
 /**
- * One-time bootstrap. Safe to re-run: it reuses the existing form when there is
- * one and only re-creates the service sheets and triggers that are missing.
+ * Одноразове налаштування. Безпечно запускати повторно: форма перебудовується
+ * з нуля, службові аркуші створюються лише якщо їх немає.
  */
 function setup() {
   var cfg = getConfig();
@@ -14,12 +14,7 @@ function setup() {
     props.setProperty(PROP.ACTIVE_PERIOD, cfg.ACTIVE_PERIOD);
   }
 
-  var formId = props.getProperty(PROP.FORM_ID);
-  var form;
-  if (formId) {
-    try { form = FormApp.openById(formId); } catch (e) { form = null; }
-  }
-  if (!form) { form = createForm(); }
+  var form = populateForm();
 
   ensureSheet_(cfg.LOG_SHEET, LOG_HEADERS);
   ensureSheet_(cfg.MATURITY_SHEET, maturityHeaders_());
@@ -29,16 +24,16 @@ function setup() {
 
   var url = form.getPublishedUrl();
   props.setProperty(PROP.FORM_URL, url);
-  Logger.log('Form ready: ' + url);
-  Logger.log('Edit URL: ' + form.getEditUrl());
+  Logger.log('Форма готова: ' + url);
+  Logger.log('Редагування форми: ' + form.getEditUrl());
   return url;
 }
 
-/** Installs the form-submit trigger, replacing any previous one. */
+/** Ставить тригер на надсилання форми, знімаючи попередній. */
 function installTriggers() {
-  var props = PropertiesService.getScriptProperties();
-  var formId = props.getProperty(PROP.FORM_ID);
-  if (!formId) { throw new Error('No form yet — run setup() first.'); }
+  var cfg = getConfig();
+  var formId = PropertiesService.getScriptProperties().getProperty(PROP.FORM_ID) || cfg.FORM_ID;
+  if (!formId) { throw new Error('Немає ID форми — спочатку запустіть setup().'); }
 
   var existing = ScriptApp.getProjectTriggers();
   for (var i = 0; i < existing.length; i++) {
@@ -53,9 +48,9 @@ function installTriggers() {
 }
 
 /**
- * Installable form-submit trigger. `e.response` is a FormResponse, which is why
- * the trigger is bound to the form rather than to the spreadsheet (the
- * spreadsheet variant only exposes header-keyed strings and breaks on re-wording).
+ * Тригер надсилання форми. `e.response` — це FormResponse, тому тригер вішається
+ * саме на форму, а не на таблицю: варіант для таблиці віддає лише рядки,
+ * підписані заголовками питань, і ламається від першої ж зміни формулювання.
  */
 function onFormSubmitHandler(e) {
   var lock = LockService.getScriptLock();
@@ -81,23 +76,23 @@ function onFormSubmitHandler(e) {
 function notifyOwnerIfNeeded_(submission, result) {
   var cfg = getConfig();
   if (!cfg.OWNER_EMAIL) { return; }
-  var needsAttention = (result.action === 'NEW_PROJECT' ||
-                        result.action === 'PROJECT_NOT_FOUND' ||
-                        result.action === 'ARCHIVED_ONLY' ||
+  var needsAttention = (result.action === 'НОВИЙ ПРОЄКТ' ||
+                        result.action === 'ПРОЄКТ НЕ ЗНАЙДЕНО' ||
+                        result.action === 'ІНШИЙ ПЕРІОД' ||
                         (result.warnings && result.warnings.length > 0));
   if (!needsAttention) { return; }
 
   var body = [
-    'Project: ' + submission.projectName,
-    'Period: ' + submission.period,
-    'Reported by: ' + submission.reporter + ' <' + submission.email + '>',
-    'Action: ' + result.action,
-    'Row: ' + (result.row > 0 ? result.row : 'n/a'),
+    'Проєкт: ' + submission.projectName,
+    'Період: ' + submission.period,
+    'Подав: ' + submission.reporter + ' <' + submission.email + '>',
+    'Дія: ' + result.action,
+    'Рядок: ' + (result.row > 0 ? result.row : 'немає'),
     '',
-    'Warnings:',
-    (result.warnings || []).map(function (w) { return '  • ' + w; }).join('\n') || '  (none)',
+    'Попередження:',
+    (result.warnings || []).map(function (w) { return '  • ' + w; }).join('\n') || '  (немає)',
     '',
-    'Written values:',
+    'Записані значення:',
     JSON.stringify(result.written || {}, null, 2)
   ].join('\n');
 
@@ -108,14 +103,14 @@ function notifyOwnerIfNeeded_(submission, result) {
 function logError_(err) {
   try {
     var sheet = ensureSheet_(getConfig().LOG_SHEET, LOG_HEADERS);
-    sheet.appendRow([new Date(), '', '', '', '', '', '', 'ERROR', '', '',
+    sheet.appendRow([new Date(), '', '', '', '', '', '', 'ПОМИЛКА', '', '',
                      String(err && err.stack ? err.stack : err)]);
-  } catch (ignore) { /* logging must never mask the original error */ }
+  } catch (ignore) { /* логування не має маскувати початкову помилку */ }
 }
 
 /**
- * Optional weekly reminder to the owner listing the projects that have not
- * reported for the active period. Install by hand from the menu if wanted.
+ * Опційне щотижневе нагадування власнику про проєкти, які ще не відзвітували.
+ * Вмикається запуском цієї функції вручну з редактора.
  */
 function installWeeklyReminder() {
   var existing = ScriptApp.getProjectTriggers();
@@ -132,8 +127,8 @@ function sendReminders() {
   if (!missing.length) { return; }
   var url = PropertiesService.getScriptProperties().getProperty(PROP.FORM_URL) || '';
   MailApp.sendEmail(cfg.OWNER_EMAIL,
-    '[AI STLC] ' + missing.length + ' project(s) have not reported for ' + cfg.ACTIVE_PERIOD,
-    'Still missing:\n' +
+    '[AI STLC] Ще не відзвітували за ' + cfg.ACTIVE_PERIOD + ': ' + missing.length + ' проєкт(ів)',
+    'Не заповнили форму:\n' +
     missing.map(function (r) { return '  • ' + r.project; }).join('\n') +
-    '\n\nForm: ' + url);
+    '\n\nФорма: ' + url);
 }

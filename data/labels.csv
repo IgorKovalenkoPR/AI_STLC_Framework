@@ -1,7 +1,7 @@
-Status code,Form option (EN),Value written to "Actual, %",Cell colour
-USED_MEASURED,Yes — used & measured,numeric (fraction),green if it meets Target / red if not
-USED_UNMEASURED,"Yes — used, not measured",numeric (fraction) or "Data pending",green / red / grey
-NOT_YET,No — but feasible,0% — not used yet,amber
-NA_PRODUCT,No — product / project specifics,N/A — product specifics,grey
-NA_NDA,No — NDA / data privacy,N/A — NDA / data privacy,grey
-NA_TOOLING,No — no automation / CI-CD / tooling,N/A — no automation / CI-CD,grey
+Код статусу,Варіант у формі,Значення в «Actual, %»,Колір комірки
+USED_MEASURED,Так — використовуємо і маємо заміри,число (частка),зелений якщо досягає Target / червоний якщо ні
+USED_UNMEASURED,"Так — використовуємо, але без замірів",число (частка) або «Немає даних»,зелений / червоний / сірий
+NOT_YET,Ні — але технічно можливо,0% — ще не використовуємо,янтарний
+NA_PRODUCT,Ні — специфіка продукту / проєкту,N/A — специфіка продукту,сірий
+NA_NDA,Ні — NDA / приватність даних,N/A — NDA / приватність даних,сірий
+NA_TOOLING,Ні — немає автоматизації / CI-CD / інструментів,N/A — немає автоматизації / CI-CD,сірий

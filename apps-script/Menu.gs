@@ -1,94 +1,83 @@
 /**
- * Menu.gs — the "AI STLC" menu in the spreadsheet.
+ * Menu.gs — меню «AI STLC» у таблиці.
  *
- * onOpen is a simple trigger, so it may not run for viewers without edit
- * rights; everything here is also callable from the Apps Script editor.
+ * onOpen — простий тригер, тому для користувачів без права редагування він може
+ * не спрацювати; усі ці функції також запускаються з редактора Apps Script.
  */
 
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('AI STLC')
-    .addItem('Setup (create form + sheets + triggers)', 'menuSetup')
-    .addItem('Show form link', 'menuShowFormLink')
+    .addItem('Налаштувати (форма + аркуші + тригер)', 'menuSetup')
+    .addItem('Показати посилання на форму', 'menuShowFormLink')
     .addSeparator()
-    .addItem('Recompute all from responses', 'menuRecomputeAll')
-    .addItem('Reapply conditional formatting', 'menuReapplyFormatting')
-    .addItem('Refresh coverage report', 'menuRefreshCoverage')
+    .addItem('Перерахувати все з відповідей', 'menuRecomputeAll')
+    .addItem('Оновити умовне форматування', 'menuReapplyFormatting')
+    .addItem('Оновити звіт про покриття', 'menuRefreshCoverage')
     .addSeparator()
-    .addItem('Snapshot current period', 'menuSnapshot')
-    .addItem('Rebuild form from script', 'menuRebuildForm')
+    .addItem('Зберегти знімок періоду', 'menuSnapshot')
+    .addItem('Наповнити форму зі скрипта', 'menuPopulateForm')
     .addSeparator()
-    .addItem('Run self-test', 'menuSelfTest')
+    .addItem('Запустити самоперевірку', 'menuSelfTest')
     .addToUi();
 }
 
 function menuSetup() {
   var url = setup();
-  alert_('Setup complete', 'Form is ready:\n\n' + url +
-         '\n\nShare this link with the QA team leads.');
+  alert_('Готово', 'Форму наповнено і прив\'язано до цієї таблиці:\n\n' + url +
+         '\n\nЦе посилання можна роздавати QA тім-лідам.');
 }
 
 function menuShowFormLink() {
   var url = PropertiesService.getScriptProperties().getProperty(PROP.FORM_URL);
-  alert_('Form link', url || 'No form yet — run Setup first.');
+  alert_('Посилання на форму', url || 'Форму ще не наповнено — запустіть «Налаштувати».');
 }
 
 function menuRecomputeAll() {
   var ui = SpreadsheetApp.getUi();
-  var answer = ui.alert('Recompute all',
-    'This clears every "Actual, %" cell for the active period and rebuilds it from the ' +
-    'latest form response per project. Manual edits to those cells will be lost. Continue?',
+  var answer = ui.alert('Перерахувати все',
+    'Усі комірки «Actual, %» за активний період буде очищено і відтворено з останньої ' +
+    'відповіді по кожному проєкту. Ручні правки цих комірок буде втрачено. Продовжити?',
     ui.ButtonSet.YES_NO);
   if (answer !== ui.Button.YES) { return; }
 
   var r = recomputeAll();
-  alert_('Recompute finished',
-         'Projects written: ' + r.applied +
-         (r.skipped.length ? '\nSkipped: ' + r.skipped.join(', ') : ''));
+  alert_('Перерахунок завершено',
+         'Записано проєктів: ' + r.applied +
+         (r.skipped.length ? '\nПропущено: ' + r.skipped.join(', ') : ''));
 }
 
 function menuReapplyFormatting() {
   applyFormatting();
-  alert_('Formatting', 'Conditional formatting rules reapplied to the Actual columns.');
+  alert_('Форматування', 'Правила умовного форматування застосовано до колонок «Actual, %».');
 }
 
 function menuRefreshCoverage() {
   buildCoverage();
-  alert_('Coverage', 'The "' + getConfig().COVERAGE_SHEET + '" tab has been refreshed.');
+  alert_('Покриття', 'Аркуш «' + getConfig().COVERAGE_SHEET + '» оновлено.');
 }
 
 function menuSnapshot() {
   var name = snapshotPeriod();
-  alert_('Snapshot', 'Current values archived to the "' + name + '" tab.');
+  alert_('Знімок', 'Поточні значення збережено на аркуші «' + name + '».');
 }
 
-function menuRebuildForm() {
+function menuPopulateForm() {
   var ui = SpreadsheetApp.getUi();
-  var answer = ui.alert('Rebuild form',
-    'A NEW form will be created from the current script. The old form keeps its ' +
-    'responses but stops feeding this sheet, and its link stops being the one to share. Continue?',
+  var answer = ui.alert('Наповнити форму',
+    'Усі поточні питання форми буде видалено і створено заново зі скрипта. ' +
+    'Посилання на форму і вже зібрані відповіді зберігаються. Продовжити?',
     ui.ButtonSet.YES_NO);
   if (answer !== ui.Button.YES) { return; }
 
-  var props = PropertiesService.getScriptProperties();
-  var oldId = props.getProperty(PROP.FORM_ID);
-  if (oldId) {
-    try {
-      var old = FormApp.openById(oldId);
-      old.setTitle(old.getTitle() + ' (retired ' +
-        Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd') + ')');
-      old.setAcceptingResponses(false);
-    } catch (e) { /* already gone */ }
-  }
-  props.deleteProperty(PROP.FORM_ID);
-  var form = createForm();
+  var form = populateForm();
   installTriggers();
-  alert_('Form rebuilt', 'New form:\n\n' + form.getPublishedUrl());
+  alert_('Форму наповнено', form.getPublishedUrl());
 }
 
 function menuSelfTest() {
   var r = runSelfTest();
-  alert_('Self-test', r.summary + (r.failures.length ? '\n\n' + r.failures.join('\n') : ''));
+  alert_('Самоперевірка', r.summary + (r.failures.length ? '\n\n' + r.failures.join('\n') : ''));
 }
 
 function alert_(title, message) {
