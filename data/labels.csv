@@ -1,0 +1,7 @@
+Status code,Form option (EN),Value written to "Actual, %",Cell colour
+USED_MEASURED,Yes — used & measured,numeric (fraction),green if it meets Target / red if not
+USED_UNMEASURED,"Yes — used, not measured",numeric (fraction) or "Data pending",green / red / grey
+NOT_YET,No — but feasible,0% — not used yet,amber
+NA_PRODUCT,No — product / project specifics,N/A — product specifics,grey
+NA_NDA,No — NDA / data privacy,N/A — NDA / data privacy,grey
+NA_TOOLING,No — no automation / CI-CD / tooling,N/A — no automation / CI-CD,grey

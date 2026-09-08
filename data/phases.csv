@@ -1,0 +1,9 @@
+Phase,Name,Metric,Target column,Actual column,Sign,Target value,Framework range,Unit
+1,Requirements Analysis,Analysis cycle time,E,F,negative,-0.30,-20..40%,hours per epic/feature
+2,Test Planning,Planning effort,G,H,negative,-0.25,-20..30%,hours per test plan
+3,Test Design,TC authoring time,I,J,negative,-0.28,-25..30%,hours per 10 test cases
+4,Environment Setup,Env provisioning time,K,L,negative,-0.33,-25..40%,hours per environment
+5,Test Execution,Execution throughput,M,N,positive,0.18,+5..30%,test cases per hour
+6,Defect Management,Triage time per defect,O,P,negative,-0.33,-30..35%,minutes per defect
+7,Test Closure,TSR generation time,Q,R,negative,-0.30,-20..40%,hours per report
+8,Test Automation,Script authoring time,S,T,negative,-0.30,-20..40%,hours per 10 scripts
