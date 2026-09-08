@@ -40,6 +40,10 @@ function parseSubmission(formResponse) {
 
   var effectiveName = isNew ? (newProject.name || 'Unnamed project') : projectRaw;
 
+  var overallUsage = trimOrEmpty_(get(map.overallUsage));
+  var isNoAi = (overallUsage === OVERALL_USAGE.NO);
+  var noAiReasonLabel = trimOrEmpty_(get(map.noAiReason));
+
   var usage = toArray_(get(map.usageGrid));
   var maturity = toArray_(get(map.maturityGrid));
   var estimates = toArray_(get(map.estimateGrid));
@@ -47,6 +51,21 @@ function parseSubmission(formResponse) {
   var phases = {};
   for (var p = 0; p < PHASES.length; p++) {
     var phase = PHASES[p];
+    if (isNoAi) {
+      // Коротка гілка: одна причина застосовується до всіх 8 фаз, зрілість = 0
+      // без окремого опитування — вона й так нульова, якщо AI не використовується.
+      phases[phase.key] = {
+        phase: phase,
+        statusLabel: noAiReasonLabel,
+        status: statusCodeFromLabel(noAiReasonLabel),
+        maturityLabel: MATURITY_OPTIONS[0],
+        maturityScore: 0,
+        hoursRaw: '',
+        hours: null,
+        bucketLabel: ''
+      };
+      continue;
+    }
     var hoursRaw = map.hours ? get(map.hours[phase.key]) : null;
     phases[phase.key] = {
       phase: phase,
@@ -73,6 +92,8 @@ function parseSubmission(formResponse) {
     approach: trimOrEmpty_(get(map.approach)),
     productTypes: toArray_(get(map.productType)),
     dataConstraints: trimOrEmpty_(get(map.dataConstraints)),
+    overallUsage: overallUsage,
+    isNoAi: isNoAi,
     basis: trimOrEmpty_(get(map.basis)),
     phases: phases,
     tools: toArray_(get(map.tools)),
@@ -80,7 +101,8 @@ function parseSubmission(formResponse) {
     hallucinationRate: parseNumberOrNull_(get(map.hallucinationRate)),
     automationCoverage: parseNumberOrNull_(get(map.automationCoverage)),
     confidence: trimOrEmpty_(get(map.confidence)),
-    blockers: trimOrEmpty_(get(map.blockers)),
+    // У короткій гілці "blockers" — це відповідь на "що потрібно, щоб почати".
+    blockers: trimOrEmpty_(get(map.blockers)) || trimOrEmpty_(get(map.noAiNeeds)),
     win: trimOrEmpty_(get(map.win))
   };
 }

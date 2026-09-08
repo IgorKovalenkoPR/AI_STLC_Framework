@@ -50,6 +50,7 @@ function populateForm() {
 
   buildSectionContext_(form, map);
   var pbNewProject = buildSectionNewProject_(form, map);
+  var pbGate = buildSectionGate_(form, map);
   var pbUsage = buildSectionUsage_(form, map);
   buildSectionMaturity_(form, map);
 
@@ -60,15 +61,25 @@ function populateForm() {
     pbMeasured = buildSectionMeasured_(form, map);
   }
   var pbEstimate = buildSectionEstimate_(form, map);
-  buildSectionTools_(form, map, cfg);
+  var pbTools = buildSectionTools_(form, map, cfg);
+  // Гілка «AI не використовується» додається останньою і завжди веде на
+  // відправку явно — тому її фізична позиція в документі не впливає на решту
+  // сторінок, які й далі йдуть одна за одною за замовчуванням (CONTINUE).
+  var pbNoAi = buildSectionNoAiPath_(form, map);
 
   // Переходи можна прописати лише після того, як усі цільові сторінки створені.
-  wireProjectNavigation_(form, map, pbNewProject, pbUsage);
-  pbNewProject.setGoToPage(pbUsage);
+  wireProjectNavigation_(form, map, pbNewProject, pbGate);
+  pbNewProject.setGoToPage(pbGate);
+  wireGateNavigation_(form, map, pbUsage, pbNoAi);
   if (basisItem && pbMeasured) {
     wireBasisNavigation_(basisItem, pbMeasured, pbEstimate);
     pbMeasured.setGoToPage(pbEstimate);
   }
+  // Явно фіксуємо кінець «довгого» шляху: без цього кінцева сторінка за
+  // замовчуванням продовжила б у наступну за порядком у документі — тепер
+  // це секція pbNoAi, а не відправка форми.
+  pbTools.setGoToPage(FormApp.PageNavigationType.SUBMIT);
+  pbNoAi.setGoToPage(FormApp.PageNavigationType.SUBMIT);
 
   ensureDestination_(form);
 
@@ -172,6 +183,28 @@ function buildSectionNewProject_(form, map) {
   map.newProjectName = form.addTextItem()
     .setTitle('Назва проєкту')
     .setHelpText('Назва так, як вона має з\'явитися у зведеній таблиці.')
+    .setRequired(true)
+    .getId();
+
+  return pb;
+}
+
+/* ------------------------------------------------------------------ */
+/* Шлюз — визначає, чи буде решта форми довгою чи короткою              */
+/* ------------------------------------------------------------------ */
+
+function buildSectionGate_(form, map) {
+  var pb = form.addPageBreakItem()
+    .setTitle('Загальне використання AI')
+    .setHelpText('Це визначає, наскільки довгою буде решта форми. Якщо оберете «Ні» — ' +
+                 'далі буде лише одне коротке питання про причину, без розділів про зрілість, ' +
+                 'виміряні дані чи метрики якості.');
+
+  map.overallUsage = form.addMultipleChoiceItem()
+    .setTitle('Чи використовується AI хоча б на одній фазі STLC на цьому проєкті?')
+    .setHelpText('Якщо на різних фазах причини різні (частина — специфіка продукту, частина — ' +
+                 'NDA), або AI використовується хоча б десь — оберіть «Так»: деталі по кожній ' +
+                 'фазі окремо вкажете на наступному кроці.')
     .setRequired(true)
     .getId();
 
@@ -320,7 +353,10 @@ function buildSectionEstimate_(form, map) {
 function buildSectionTools_(form, map, cfg) {
   var pb = form.addPageBreakItem()
     .setTitle('Інструменти та зворотний зв\'язок')
-    .setHelpText('Останній блок. Питання про відсотки — опційні, заповнюйте лише якщо ці цифри у вас є.');
+    .setHelpText('Останній блок. Питання про відсотки — опційні, заповнюйте лише якщо ці цифри у вас є.\n\n' +
+                 'Увага: ці відсотки — окремі метрики ЯКОСТІ з фреймворку, а НЕ ще один спосіб ' +
+                 'вказати Target/Actual за часом із секції 2. Наприклад, ціль ≥70% нижче — це частка ' +
+                 'прийнятих тест-кейсів, а не ціль −25…30% фази «Дизайн тестів» із зведеної таблиці.');
 
   var tools = form.addCheckboxItem()
     .setTitle('Які категорії AI-інструментів ви реально використовували цього періоду?')
@@ -334,18 +370,23 @@ function buildSectionTools_(form, map, cfg) {
     map.acceptanceRate = addPercentItem_(
       form,
       'Частка AI-згенерованих тест-кейсів, прийнятих без правок, %',
-      'Ціль фреймворку: ≥ 70%. Нижче 50% — сигнал, що промпти потребують доопрацювання.');
+      'Окрема метрика ЯКОСТІ фази «Дизайн тестів» — НЕ пов\'язана зі шкалою Target/Actual за ' +
+      'часом вище (там ціль цієї фази −25…30%). Ціль фреймворку саме для цієї метрики: ≥ 70%. ' +
+      'Нижче 50% — сигнал, що промпти потребують доопрацювання.');
 
     map.hallucinationRate = addPercentItem_(
       form,
       'Частка галюцинацій / переробок в AI-артефактах, %',
-      'Частка AI-артефактів (тест-кейсів, баг-репортів), у яких під час рев\'ю знайшли ' +
+      'Окрема метрика ЯКОСТІ фази «Робота з дефектами» — НЕ пов\'язана зі шкалою Target/Actual за ' +
+      'часом. Частка AI-артефактів (тест-кейсів, баг-репортів), у яких під час рев\'ю знайшли ' +
       'фактичні помилки або вигадані кроки. Типово 3–8% для хмарних LLM.');
 
     map.automationCoverage = addPercentItem_(
       form,
       'Покриття автоматизацією, %',
-      'Автоматизовані ТК / усі ТК у наборі × 100. Якщо автоматизації немає — вкажіть 0.');
+      'Окрема метрика ЯКОСТІ фази «Автоматизація тестування» — НЕ пов\'язана зі шкалою ' +
+      'Target/Actual за часом. Автоматизовані ТК / усі ТК у наборі × 100. Якщо автоматизації ' +
+      'немає — вкажіть 0.');
   }
 
   map.confidence = form.addMultipleChoiceItem()
@@ -366,6 +407,33 @@ function buildSectionTools_(form, map, cfg) {
   map.win = form.addParagraphTextItem()
     .setTitle('Найкращий кейс використання AI за цей період (1–2 речення)')
     .setHelpText('Короткий кейс, який варто показати іншим командам.')
+    .setRequired(false)
+    .getId();
+
+  return pb;
+}
+
+/* ------------------------------------------------------------------ */
+/* Коротка гілка — AI не використовується на жодній фазі                */
+/* ------------------------------------------------------------------ */
+
+function buildSectionNoAiPath_(form, map) {
+  var pb = form.addPageBreakItem()
+    .setTitle('AI не використовується на проєкті')
+    .setHelpText('Оберіть одну причину — вона застосується до всіх 8 фаз у зведеній таблиці. ' +
+                 'Якщо причини відрізняються по фазах, поверніться на попередній крок і оберіть ' +
+                 '«Так», щоб вказати їх окремо для кожної фази.');
+
+  map.noAiReason = form.addMultipleChoiceItem()
+    .setTitle('Чому AI не використовується на жодній фазі?')
+    .setChoiceValues(noAiReasonLabels())
+    .setRequired(true)
+    .getId();
+
+  map.noAiNeeds = form.addParagraphTextItem()
+    .setTitle('Що потрібно, щоб почати використовувати AI на цьому проєкті?')
+    .setHelpText('Наприклад: дозвіл клієнта, доступ до інструменту, автоматизація, час на ' +
+                 'навчання команди. Це поле опційне.')
     .setRequired(false)
     .getId();
 
@@ -400,5 +468,13 @@ function wireBasisNavigation_(item, pbMeasured, pbEstimate) {
   item.setChoices([
     item.createChoice(REPORTING_BASIS.MEASURED, pbMeasured),
     item.createChoice(REPORTING_BASIS.ESTIMATED, pbEstimate)
+  ]);
+}
+
+function wireGateNavigation_(form, map, pbUsage, pbNoAi) {
+  var item = form.getItemById(map.overallUsage).asMultipleChoiceItem();
+  item.setChoices([
+    item.createChoice(OVERALL_USAGE.YES, pbUsage),
+    item.createChoice(OVERALL_USAGE.NO, pbNoAi)
   ]);
 }
