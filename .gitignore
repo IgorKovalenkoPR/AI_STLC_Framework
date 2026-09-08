@@ -1,0 +1,13 @@
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*~
+.idea/
+.vscode/
+
+# Temporary Office lock files
+~$*.xlsx
+~$*.docx
+
+# Local script output
+*.log
