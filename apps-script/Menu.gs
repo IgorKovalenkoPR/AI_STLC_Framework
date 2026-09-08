@@ -20,6 +20,8 @@ function onOpen() {
     .addItem('Наповнити форму зі скрипта', 'menuPopulateForm')
     .addSeparator()
     .addItem('Запустити самоперевірку', 'menuSelfTest')
+    .addSeparator()
+    .addItem('Очистити всі тестові дані', 'menuResetAllData')
     .addToUi();
 }
 
@@ -76,6 +78,23 @@ function menuPopulateForm() {
   var form = populateForm();
   installTriggers();
   alert_('Форму наповнено', form.getPublishedUrl());
+}
+
+function menuResetAllData() {
+  var ui = SpreadsheetApp.getUi();
+  var answer = ui.alert('Очистити всі тестові дані',
+    'Це очистить колонки "Actual, %" у "' + getConfig().SHEET_NAME + '", а також усі рядки в ' +
+    '"Журнал відповідей" і "Зрілість AI". Target-колонки, заголовки й проєкти НЕ чіпаються.\n\n' +
+    'Це НЕ видаляє відповіді самої форми — Apps Script не має для цього API. ' +
+    'Зробіть це окремо: у формі Відповіді → ⋮ → Видалити всі відповіді, ' +
+    'ДО або ПІСЛЯ цього кроку (порядок не важливий, аби обидва були зроблені).\n\n' +
+    'Продовжити?',
+    ui.ButtonSet.YES_NO);
+  if (answer !== ui.Button.YES) { return; }
+
+  resetAllData();
+  alert_('Готово', 'Тестові дані очищено. Не забудьте видалити відповіді у самій формі, ' +
+                    'якщо ще не зробили.');
 }
 
 function menuSelfTest() {

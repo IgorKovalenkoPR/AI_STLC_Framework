@@ -8,6 +8,34 @@
  */
 
 /**
+ * Повне очищення тестових даних: чистить Actual-колонки, "Журнал відповідей",
+ * "Зрілість AI" і перебудовує "Покриття" з нуля. НЕ чіпає Target-колонки,
+ * заголовки чи форматування — лише накопичені дані.
+ *
+ * Apps Script не має API для видалення відповідей форми — це єдиний крок,
+ * який лишається зробити вручну: форма → Відповіді → ⋮ → Видалити всі відповіді.
+ * Робіть це ДО запуску resetAllData(), інакше recomputeAll() (не викликається
+ * тут) міг би одразу відновити щойно стерті рядки зі старих відповідей.
+ */
+function resetAllData() {
+  var cfg = getConfig();
+  var ss = getTargetSpreadsheet();
+
+  clearActualColumns_();
+  clearDataRows_(ss.getSheetByName(cfg.LOG_SHEET));
+  clearDataRows_(ss.getSheetByName(cfg.MATURITY_SHEET));
+
+  buildCoverage();
+  return { cleared: true };
+}
+
+/** Прибирає всі рядки з даними, лишаючи заголовок (рядок 1). */
+function clearDataRows_(sheet) {
+  if (!sheet || sheet.getLastRow() <= 1) { return; }
+  sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).clearContent();
+}
+
+/**
  * Clears and rebuilds every Actual cell for the active period using the latest
  * response per project.
  */
