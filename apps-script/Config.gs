@@ -17,7 +17,7 @@
 var DEFAULTS = {
   // Форма і таблиця замовника (перевизначаються властивостями скрипта).
   FORM_ID: '1nV4lfzdAIqe5l2UazTvc0dU_QqQMoJYIXOqDM3E04Z8',
-  TARGET_SPREADSHEET_ID: '',      // порожньо = таблиця, до якої прив'язаний скрипт
+  TARGET_SPREADSHEET_ID: '1eAF4qx9d3g6hQKqAm34ZO3HJwd1okfLF3cJrfleeeC8',
 
   SHEET_NAME: 'AI QA Optimization',
   MATURITY_SHEET: 'Зрілість AI',
@@ -33,7 +33,7 @@ var DEFAULTS = {
   ACTIVE_PERIOD: 'Q3 2026',
   OWNER_EMAIL: '',
 
-  FORM_TITLE: 'Використання AI у STLC — самооцінка проєкту',
+  FORM_TITLE: 'AI QA Optimization',
 
   // Прапорці обсягу форми. Обидва false дають скорочену форму на 14 елементів.
   INCLUDE_MEASURED_HOURS_SECTION: true,

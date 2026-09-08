@@ -6,6 +6,7 @@
  */
 
 function onOpen() {
+  if (!hasSpreadsheetUi_()) { return; }
   SpreadsheetApp.getUi()
     .createMenu('AI STLC')
     .addItem('Налаштувати (форма + аркуші + тригер)', 'menuSetup')
@@ -34,6 +35,7 @@ function menuShowFormLink() {
 }
 
 function menuRecomputeAll() {
+  if (!hasSpreadsheetUi_()) { return recomputeAll(); }
   var ui = SpreadsheetApp.getUi();
   var answer = ui.alert('Перерахувати все',
     'Усі комірки «Actual, %» за активний період буде очищено і відтворено з останньої ' +
@@ -63,6 +65,7 @@ function menuSnapshot() {
 }
 
 function menuPopulateForm() {
+  if (!hasSpreadsheetUi_()) { populateForm(); installTriggers(); return; }
   var ui = SpreadsheetApp.getUi();
   var answer = ui.alert('Наповнити форму',
     'Усі поточні питання форми буде видалено і створено заново зі скрипта. ' +
@@ -80,6 +83,20 @@ function menuSelfTest() {
   alert_('Самоперевірка', r.summary + (r.failures.length ? '\n\n' + r.failures.join('\n') : ''));
 }
 
+/**
+ * Показує діалог, коли скрипт прив'язаний до таблиці, і пише в лог, коли ні
+ * (у проєкті, створеному з форми або окремо, SpreadsheetApp.getUi() недоступний).
+ */
 function alert_(title, message) {
-  SpreadsheetApp.getUi().alert(title, message, SpreadsheetApp.getUi().ButtonSet.OK);
+  try {
+    var ui = SpreadsheetApp.getUi();
+    ui.alert(title, message, ui.ButtonSet.OK);
+  } catch (e) {
+    Logger.log(title + '\n' + message);
+  }
+}
+
+/** true, якщо скрипт прив'язаний до таблиці і має UI. */
+function hasSpreadsheetUi_() {
+  try { SpreadsheetApp.getUi(); return true; } catch (e) { return false; }
 }
