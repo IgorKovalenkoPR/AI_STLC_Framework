@@ -40,7 +40,10 @@ function populateForm() {
   form.setShuffleQuestions(false);
   form.setAllowResponseEdits(true);
   form.setLimitOneResponsePerUser(false);
-  form.setAcceptingResponses(true);
+  // Нова форма й так приймає відповіді за замовчуванням; сам виклик іноді кидає
+  // «Operation not supported on unpublished form» на формах, створених через UI
+  // (а не FormApp.create()), тому він необов'язковий і обгорнутий у try/catch.
+  try { form.setAcceptingResponses(true); } catch (e) { /* форма вже приймає відповіді */ }
   if (cfg.COLLECT_EMAIL) { enableEmailCollection_(form); }
 
   var map = { hours: {} };
