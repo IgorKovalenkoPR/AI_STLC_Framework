@@ -52,32 +52,38 @@ function populateForm() {
   var pbNewProject = buildSectionNewProject_(form, map);
   var pbGate = buildSectionGate_(form, map);
   var pbUsage = buildSectionUsage_(form, map);
-  buildSectionMaturity_(form, map);
+  var pbMaturity = buildSectionMaturity_(form, map);
 
   var basisItem = null;
+  var pbBasis = null;
   var pbMeasured = null;
   if (cfg.INCLUDE_MEASURED_HOURS_SECTION) {
-    basisItem = buildSectionBasis_(form, map);
+    var basis = buildSectionBasis_(form, map);
+    pbBasis = basis.pb;
+    basisItem = basis.item;
     pbMeasured = buildSectionMeasured_(form, map);
   }
   var pbEstimate = buildSectionEstimate_(form, map);
   var pbTools = buildSectionTools_(form, map, cfg);
   // Гілка «AI не використовується» додається останньою і завжди веде на
   // відправку явно — тому її фізична позиція в документі не впливає на решту
-  // сторінок, які й далі йдуть одна за одною за замовчуванням (CONTINUE).
+  // сторінок.
   var pbNoAi = buildSectionNoAiPath_(form, map);
 
-  // Переходи можна прописати лише після того, як усі цільові сторінки створені.
+  // Жоден перехід не покладається на типову поведінку Google Forms
+  // («продовжити за порядком у документі») — вона виявилась ненадійною
+  // (саме через неї секція «Інструменти» одного разу випала з навігації).
+  // Кожен крок прописано явно.
   wireProjectNavigation_(form, map, pbNewProject, pbGate);
   pbNewProject.setGoToPage(pbGate);
   wireGateNavigation_(form, map, pbUsage, pbNoAi);
+  pbUsage.setGoToPage(pbMaturity);
+  pbMaturity.setGoToPage(pbBasis || pbEstimate);
   if (basisItem && pbMeasured) {
     wireBasisNavigation_(basisItem, pbMeasured, pbEstimate);
     pbMeasured.setGoToPage(pbEstimate);
   }
-  // Явно фіксуємо кінець «довгого» шляху: без цього кінцева сторінка за
-  // замовчуванням продовжила б у наступну за порядком у документі — тепер
-  // це секція pbNoAi, а не відправка форми.
+  pbEstimate.setGoToPage(pbTools);
   pbTools.setGoToPage(FormApp.PageNavigationType.SUBMIT);
   pbNoAi.setGoToPage(FormApp.PageNavigationType.SUBMIT);
 
@@ -293,7 +299,7 @@ function buildSectionMaturity_(form, map) {
 /* ------------------------------------------------------------------ */
 
 function buildSectionBasis_(form, map) {
-  form.addPageBreakItem()
+  var pb = form.addPageBreakItem()
     .setTitle('На основі чого ви можете оцінити ефект')
     .setHelpText('Принцип фреймворку: «Measure before and after. No baseline = no proof of value.» ' +
                  'Якщо точних замірів немає — це нормально: оцінимо діапазоном, ' +
@@ -306,7 +312,7 @@ function buildSectionBasis_(form, map) {
     .setRequired(true);
 
   map.basis = item.getId();
-  return item;
+  return { pb: pb, item: item };
 }
 
 /* ------------------------------------------------------------------ */
