@@ -241,3 +241,30 @@ function logSubmission_(submission, result) {
     (result.warnings || []).join(' | ')
   ]);
 }
+
+var FEEDBACK_HEADERS = ['Час', 'Проєкт', 'Період', 'Категорії AI-інструментів',
+                        'Частка прийнятих ТК, %', 'Частка галюцинацій, %', 'Покриття автоматизацією, %',
+                        'Рівень довіри', 'Основні блокери', 'Найкращий кейс', 'Автор', 'ID відповіді'];
+
+/**
+ * Секція 7 форми (категорії інструментів, метрики якості, блокери, кейс)
+ * не належить до жодної фази й тому не вписується в колонки "Actual, %" —
+ * записуємо її окремим рядком тут, інакше ці відповіді ніде не зберігаються.
+ */
+function logFeedback_(submission) {
+  var sheet = ensureSheet_(getConfig().FEEDBACK_SHEET, FEEDBACK_HEADERS);
+  sheet.appendRow([
+    submission.timestamp,
+    submission.projectName,
+    submission.period,
+    (submission.tools || []).join(', '),
+    submission.acceptanceRate,
+    submission.hallucinationRate,
+    submission.automationCoverage,
+    submission.confidence,
+    submission.blockers,
+    submission.win,
+    submission.reporter,
+    submission.responseId
+  ]);
+}

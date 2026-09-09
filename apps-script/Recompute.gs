@@ -24,6 +24,7 @@ function resetAllData() {
   clearActualColumns_();
   clearDataRows_(ss.getSheetByName(cfg.LOG_SHEET));
   clearDataRows_(ss.getSheetByName(cfg.MATURITY_SHEET));
+  clearDataRows_(ss.getSheetByName(cfg.FEEDBACK_SHEET));
 
   buildCoverage();
   return { cleared: true };
@@ -65,6 +66,7 @@ function recomputeAll() {
     if (result.row > 0) { writeMaturity(latest[k]); applied++; }
     else { skipped.push(latest[k].projectName + ' (' + result.action + ')'); }
     logSubmission_(latest[k], result);
+    logFeedback_(latest[k]);
   }
 
   applyFormatting();

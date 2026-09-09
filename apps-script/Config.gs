@@ -23,6 +23,7 @@ var DEFAULTS = {
   MATURITY_SHEET: 'Зрілість AI',
   LOG_SHEET: 'Журнал відповідей',
   COVERAGE_SHEET: 'Покриття',
+  FEEDBACK_SHEET: 'Інструменти та відгуки',
 
   FIRST_DATA_ROW: 4,   // рядки 1–3 — об'єднаний заголовок
   COL_NUM: 1,          // A  #

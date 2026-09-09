@@ -18,6 +18,7 @@ function setup() {
 
   ensureSheet_(cfg.LOG_SHEET, LOG_HEADERS);
   ensureSheet_(cfg.MATURITY_SHEET, maturityHeaders_());
+  ensureSheet_(cfg.FEEDBACK_SHEET, FEEDBACK_HEADERS);
   applyFormatting();
   buildCoverage();
   installTriggers();
@@ -63,6 +64,7 @@ function onFormSubmitHandler(e) {
       applyFormatting();
     }
     logSubmission_(submission, result);
+    logFeedback_(submission);
     buildCoverage();
     notifyOwnerIfNeeded_(submission, result);
   } catch (err) {
