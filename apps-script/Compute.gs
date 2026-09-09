@@ -20,57 +20,57 @@ function computeActual(phaseData, cfg) {
   var warnings = [];
   var status = phaseData.status;
 
-  // Крок 0 — «неможливо» перекриває будь-яке введене число.
+  // Step 0 — "not possible" overrides any entered number.
   if (status && !STATUSES[status].numeric) {
     if (status !== 'NOT_YET' && phaseData.hours) {
-      warnings.push(phase.short + ': позначено «' + STATUSES[status].label +
-                    '», але водночас введено години (' + phaseData.hoursRaw + ') — години проігноровано.');
+      warnings.push(phase.short + ': marked "' + STATUSES[status].label +
+                    '", but hours were also entered (' + phaseData.hoursRaw + ') — hours ignored.');
     }
     return { value: null, text: STATUSES[status].cell, source: 'status', warnings: warnings };
   }
 
   if (!status) {
-    warnings.push(phase.short + ': не вказано статус використання AI — нічого не записано.');
+    warnings.push(phase.short + ': AI-usage status not specified — nothing written.');
     return { value: null, text: null, source: 'none', warnings: warnings };
   }
 
-  // Крок 2 — виміряні години.
+  // Step 2 — measured hours.
   if (phaseData.hours) {
     var b = phaseData.hours.baseline;
     var a = phaseData.hours.ai;
     if (b === 0) {
-      warnings.push(phase.short + ': baseline = 0, відсоток порахувати неможливо — беремо оцінку діапазоном.');
+      warnings.push(phase.short + ': baseline = 0, cannot calculate a percentage — falling back to the bucket estimate.');
     } else {
       var raw = (phase.sign > 0) ? (a - b) / b : -((b - a) / b);
       return finalise_(raw, 'measured', phase, warnings, cfg);
     }
   }
 
-  // Крок 3 — самооцінка діапазоном.
+  // Step 3 — self-assessed bucket.
   var mid = BUCKETS[phaseData.bucketLabel];
   if (mid !== undefined && mid !== null) {
     var v = (phase.sign > 0) ? mid : -mid;
     return finalise_(v, 'estimated', phase, warnings, cfg);
   }
 
-  // Крок 4 — використовують, але нічого не виміряли.
+  // Step 4 — used, but nothing was measured.
   return { value: null, text: LABEL_PENDING, source: 'pending', warnings: warnings };
 }
 
 function finalise_(raw, source, phase, warnings, cfg) {
   var value = Math.round(raw * 1000) / 1000;
   if (Math.abs(value) > cfg.OUTLIER_THRESHOLD) {
-    warnings.push(phase.short + ': розраховано ' + formatPercent(value) +
-                  ' — схоже на викид, перевірте введені числа.');
+    warnings.push(phase.short + ': calculated ' + formatPercent(value) +
+                  ' — looks like an outlier, double-check the entered numbers.');
   }
   if ((phase.sign > 0 && value < 0) || (phase.sign < 0 && value > 0)) {
-    warnings.push(phase.short + ': числа описують регресію відносно baseline (' +
+    warnings.push(phase.short + ': the numbers describe a regression versus baseline (' +
                   formatPercent(value) + ').');
   }
   return { value: value, text: null, source: source, warnings: warnings };
 }
 
-/** true, якщо Actual досягає або перевищує Target з урахуванням напрямку фази. */
+/** true if Actual meets or exceeds Target, accounting for the phase's direction. */
 function meetsTarget(phase, value) {
   if (value === null || value === undefined) { return null; }
   return (phase.sign > 0) ? (value >= phase.target) : (value <= phase.target);

@@ -8,7 +8,7 @@
 function getItemMap() {
   var raw = PropertiesService.getScriptProperties().getProperty(PROP.ITEM_MAP);
   if (!raw) {
-    throw new Error('Немає ITEM_MAP. Спочатку запустіть «AI STLC ▸ Наповнити форму».');
+    throw new Error('No ITEM_MAP. Run "AI STLC ▸ Populate form" first.');
   }
   return JSON.parse(raw);
 }

@@ -8,14 +8,14 @@
  */
 
 /**
- * Повне очищення тестових даних: чистить Actual-колонки, "Журнал відповідей",
- * "Зрілість AI" і перебудовує "Покриття" з нуля. НЕ чіпає Target-колонки,
- * заголовки чи форматування — лише накопичені дані.
+ * Full test-data wipe: clears the Actual columns, "Submission Log",
+ * "AI Maturity", and rebuilds "Coverage" from scratch. Does NOT touch Target
+ * columns, headers, or formatting — only accumulated data.
  *
- * Apps Script не має API для видалення відповідей форми — це єдиний крок,
- * який лишається зробити вручну: форма → Відповіді → ⋮ → Видалити всі відповіді.
- * Робіть це ДО запуску resetAllData(), інакше recomputeAll() (не викликається
- * тут) міг би одразу відновити щойно стерті рядки зі старих відповідей.
+ * Apps Script has no API to delete form responses — that's the one step left
+ * to do manually: form → Responses → ⋮ → Delete all responses.
+ * Do this BEFORE running resetAllData(), otherwise recomputeAll() (not called
+ * here) could immediately restore the just-cleared rows from old responses.
  */
 function resetAllData() {
   var cfg = getConfig();
@@ -30,7 +30,7 @@ function resetAllData() {
   return { cleared: true };
 }
 
-/** Прибирає всі рядки з даними, лишаючи заголовок (рядок 1). */
+/** Removes all data rows, keeping the header (row 1). */
 function clearDataRows_(sheet) {
   if (!sheet || sheet.getLastRow() <= 1) { return; }
   sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).clearContent();
@@ -44,7 +44,7 @@ function recomputeAll() {
   var cfg = getConfig();
   var props = PropertiesService.getScriptProperties();
   var formId = props.getProperty(PROP.FORM_ID) || cfg.FORM_ID;
-  if (!formId) { throw new Error('Форму ще не наповнено — спочатку запустіть setup().'); }
+  if (!formId) { throw new Error('The form has not been populated yet — run setup() first.'); }
 
   var responses = FormApp.openById(formId).getResponses();
   var latest = {};   // normalised project -> submission (active period only)
@@ -116,7 +116,7 @@ function coverageStatus_() {
 function buildCoverage() {
   var cfg = getConfig();
   var sheet = ensureSheet_(cfg.COVERAGE_SHEET,
-    ['Проєкт', 'Рядок', 'Заповнено фаз (з 8)', 'Статус', 'Період', 'Оновлено']);
+    ['Project', 'Row', 'Phases filled (of 8)', 'Status', 'Period', 'Updated']);
   var status = coverageStatus_();
   var now = new Date();
 
@@ -126,7 +126,7 @@ function buildCoverage() {
   if (!status.length) { return; }
 
   var rows = status.map(function (r) {
-    return [r.project, r.row, r.filled, r.reported ? 'Відзвітував' : 'Немає даних', cfg.ACTIVE_PERIOD, now];
+    return [r.project, r.row, r.filled, r.reported ? 'Reported' : 'No data', cfg.ACTIVE_PERIOD, now];
   });
   sheet.getRange(2, 1, rows.length, 6).setValues(rows);
 }
@@ -139,11 +139,11 @@ function buildCoverage() {
 function snapshotPeriod() {
   var cfg = getConfig();
   var sheet = getMainSheet_();
-  var name = 'Архів ' + cfg.ACTIVE_PERIOD;
+  var name = 'Archive ' + cfg.ACTIVE_PERIOD;
   var ss = getTargetSpreadsheet();
   if (ss.getSheetByName(name)) { ss.deleteSheet(ss.getSheetByName(name)); }
 
-  var headers = ['Проєкт'];
+  var headers = ['Project'];
   for (var i = 0; i < PHASES.length; i++) { headers.push(PHASES[i].short); }
   var archive = ss.insertSheet(name);
   archive.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');

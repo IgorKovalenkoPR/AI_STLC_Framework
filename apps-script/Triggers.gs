@@ -1,10 +1,10 @@
 /**
- * Triggers.gs — точка входу та обробник надсилання форми.
+ * Triggers.gs — entry point and the form-submit handler.
  */
 
 /**
- * Одноразове налаштування. Безпечно запускати повторно: форма перебудовується
- * з нуля, службові аркуші створюються лише якщо їх немає.
+ * One-time setup. Safe to run again: the form is rebuilt from scratch, and
+ * support sheets are created only if they don't already exist.
  */
 function setup() {
   var cfg = getConfig();
@@ -25,16 +25,16 @@ function setup() {
 
   var url = form.getPublishedUrl();
   props.setProperty(PROP.FORM_URL, url);
-  Logger.log('Форма готова: ' + url);
-  Logger.log('Редагування форми: ' + form.getEditUrl());
+  Logger.log('Form is ready: ' + url);
+  Logger.log('Form edit link: ' + form.getEditUrl());
   return url;
 }
 
-/** Ставить тригер на надсилання форми, знімаючи попередній. */
+/** Installs the form-submit trigger, removing any previous one. */
 function installTriggers() {
   var cfg = getConfig();
   var formId = PropertiesService.getScriptProperties().getProperty(PROP.FORM_ID) || cfg.FORM_ID;
-  if (!formId) { throw new Error('Немає ID форми — спочатку запустіть setup().'); }
+  if (!formId) { throw new Error('No form ID — run setup() first.'); }
 
   var existing = ScriptApp.getProjectTriggers();
   for (var i = 0; i < existing.length; i++) {
@@ -49,9 +49,9 @@ function installTriggers() {
 }
 
 /**
- * Тригер надсилання форми. `e.response` — це FormResponse, тому тригер вішається
- * саме на форму, а не на таблицю: варіант для таблиці віддає лише рядки,
- * підписані заголовками питань, і ламається від першої ж зміни формулювання.
+ * Form-submit trigger. `e.response` is a FormResponse, so the trigger is bound
+ * to the form itself rather than the sheet: the sheet-bound variant only hands
+ * back rows keyed by question headers, and breaks the moment wording changes.
  */
 function onFormSubmitHandler(e) {
   var lock = LockService.getScriptLock();
@@ -78,23 +78,23 @@ function onFormSubmitHandler(e) {
 function notifyOwnerIfNeeded_(submission, result) {
   var cfg = getConfig();
   if (!cfg.OWNER_EMAIL) { return; }
-  var needsAttention = (result.action === 'НОВИЙ ПРОЄКТ' ||
-                        result.action === 'ПРОЄКТ НЕ ЗНАЙДЕНО' ||
-                        result.action === 'ІНШИЙ ПЕРІОД' ||
+  var needsAttention = (result.action === 'NEW PROJECT' ||
+                        result.action === 'PROJECT NOT FOUND' ||
+                        result.action === 'OTHER PERIOD' ||
                         (result.warnings && result.warnings.length > 0));
   if (!needsAttention) { return; }
 
   var body = [
-    'Проєкт: ' + submission.projectName,
-    'Період: ' + submission.period,
-    'Подав: ' + submission.reporter + ' <' + submission.email + '>',
-    'Дія: ' + result.action,
-    'Рядок: ' + (result.row > 0 ? result.row : 'немає'),
+    'Project: ' + submission.projectName,
+    'Period: ' + submission.period,
+    'Submitted by: ' + submission.reporter + ' <' + submission.email + '>',
+    'Action: ' + result.action,
+    'Row: ' + (result.row > 0 ? result.row : 'none'),
     '',
-    'Попередження:',
-    (result.warnings || []).map(function (w) { return '  • ' + w; }).join('\n') || '  (немає)',
+    'Warnings:',
+    (result.warnings || []).map(function (w) { return '  • ' + w; }).join('\n') || '  (none)',
     '',
-    'Записані значення:',
+    'Written values:',
     JSON.stringify(result.written || {}, null, 2)
   ].join('\n');
 
@@ -105,14 +105,14 @@ function notifyOwnerIfNeeded_(submission, result) {
 function logError_(err) {
   try {
     var sheet = ensureSheet_(getConfig().LOG_SHEET, LOG_HEADERS);
-    sheet.appendRow([new Date(), '', '', '', '', '', '', 'ПОМИЛКА', '', '',
+    sheet.appendRow([new Date(), '', '', '', '', '', '', 'ERROR', '', '',
                      String(err && err.stack ? err.stack : err)]);
-  } catch (ignore) { /* логування не має маскувати початкову помилку */ }
+  } catch (ignore) { /* logging must not mask the original error */ }
 }
 
 /**
- * Опційне щотижневе нагадування власнику про проєкти, які ще не відзвітували.
- * Вмикається запуском цієї функції вручну з редактора.
+ * Optional weekly reminder to the owner about projects that haven't reported
+ * yet. Enabled by running this function manually from the editor.
  */
 function installWeeklyReminder() {
   var existing = ScriptApp.getProjectTriggers();
@@ -129,8 +129,8 @@ function sendReminders() {
   if (!missing.length) { return; }
   var url = PropertiesService.getScriptProperties().getProperty(PROP.FORM_URL) || '';
   MailApp.sendEmail(cfg.OWNER_EMAIL,
-    '[AI STLC] Ще не відзвітували за ' + cfg.ACTIVE_PERIOD + ': ' + missing.length + ' проєкт(ів)',
-    'Не заповнили форму:\n' +
+    '[AI STLC] Not yet reported for ' + cfg.ACTIVE_PERIOD + ': ' + missing.length + ' project(s)',
+    'Have not filled in the form:\n' +
     missing.map(function (r) { return '  • ' + r.project; }).join('\n') +
-    '\n\nФорма: ' + url);
+    '\n\nForm: ' + url);
 }

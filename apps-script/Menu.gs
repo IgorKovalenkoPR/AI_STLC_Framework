@@ -1,110 +1,111 @@
 /**
- * Menu.gs — меню «AI STLC» у таблиці.
+ * Menu.gs — the "AI STLC" menu in the spreadsheet.
  *
- * onOpen — простий тригер, тому для користувачів без права редагування він може
- * не спрацювати; усі ці функції також запускаються з редактора Apps Script.
+ * onOpen is a simple trigger, so it may not fire for users without edit
+ * access; all of these functions can also be run from the Apps Script editor.
  */
 
 function onOpen() {
   if (!hasSpreadsheetUi_()) { return; }
   SpreadsheetApp.getUi()
     .createMenu('AI STLC')
-    .addItem('Налаштувати (форма + аркуші + тригер)', 'menuSetup')
-    .addItem('Показати посилання на форму', 'menuShowFormLink')
+    .addItem('Set up (form + sheets + trigger)', 'menuSetup')
+    .addItem('Show form link', 'menuShowFormLink')
     .addSeparator()
-    .addItem('Перерахувати все з відповідей', 'menuRecomputeAll')
-    .addItem('Оновити умовне форматування', 'menuReapplyFormatting')
-    .addItem('Оновити звіт про покриття', 'menuRefreshCoverage')
+    .addItem('Recompute all from responses', 'menuRecomputeAll')
+    .addItem('Reapply conditional formatting', 'menuReapplyFormatting')
+    .addItem('Refresh coverage report', 'menuRefreshCoverage')
     .addSeparator()
-    .addItem('Зберегти знімок періоду', 'menuSnapshot')
-    .addItem('Наповнити форму зі скрипта', 'menuPopulateForm')
+    .addItem('Save period snapshot', 'menuSnapshot')
+    .addItem('Populate form from script', 'menuPopulateForm')
     .addSeparator()
-    .addItem('Запустити самоперевірку', 'menuSelfTest')
+    .addItem('Run self-test', 'menuSelfTest')
     .addSeparator()
-    .addItem('Очистити всі тестові дані', 'menuResetAllData')
+    .addItem('Clear all test data', 'menuResetAllData')
     .addToUi();
 }
 
 function menuSetup() {
   var url = setup();
-  alert_('Готово', 'Форму наповнено і прив\'язано до цієї таблиці:\n\n' + url +
-         '\n\nЦе посилання можна роздавати QA тім-лідам.');
+  alert_('Done', 'The form has been populated and linked to this spreadsheet:\n\n' + url +
+         '\n\nYou can share this link with QA team leads.');
 }
 
 function menuShowFormLink() {
   var url = PropertiesService.getScriptProperties().getProperty(PROP.FORM_URL);
-  alert_('Посилання на форму', url || 'Форму ще не наповнено — запустіть «Налаштувати».');
+  alert_('Form link', url || 'The form has not been populated yet — run "Set up".');
 }
 
 function menuRecomputeAll() {
   if (!hasSpreadsheetUi_()) { return recomputeAll(); }
   var ui = SpreadsheetApp.getUi();
-  var answer = ui.alert('Перерахувати все',
-    'Усі комірки «Actual, %» за активний період буде очищено і відтворено з останньої ' +
-    'відповіді по кожному проєкту. Ручні правки цих комірок буде втрачено. Продовжити?',
+  var answer = ui.alert('Recompute all',
+    'All "Actual, %" cells for the active period will be cleared and rebuilt from the latest ' +
+    'response for each project. Manual edits to these cells will be lost. Continue?',
     ui.ButtonSet.YES_NO);
   if (answer !== ui.Button.YES) { return; }
 
   var r = recomputeAll();
-  alert_('Перерахунок завершено',
-         'Записано проєктів: ' + r.applied +
-         (r.skipped.length ? '\nПропущено: ' + r.skipped.join(', ') : ''));
+  alert_('Recompute finished',
+         'Projects written: ' + r.applied +
+         (r.skipped.length ? '\nSkipped: ' + r.skipped.join(', ') : ''));
 }
 
 function menuReapplyFormatting() {
   applyFormatting();
-  alert_('Форматування', 'Правила умовного форматування застосовано до колонок «Actual, %».');
+  alert_('Formatting', 'Conditional formatting rules were applied to the "Actual, %" columns.');
 }
 
 function menuRefreshCoverage() {
   buildCoverage();
-  alert_('Покриття', 'Аркуш «' + getConfig().COVERAGE_SHEET + '» оновлено.');
+  alert_('Coverage', 'The "' + getConfig().COVERAGE_SHEET + '" sheet has been updated.');
 }
 
 function menuSnapshot() {
   var name = snapshotPeriod();
-  alert_('Знімок', 'Поточні значення збережено на аркуші «' + name + '».');
+  alert_('Snapshot', 'Current values were saved to the "' + name + '" sheet.');
 }
 
 function menuPopulateForm() {
   if (!hasSpreadsheetUi_()) { populateForm(); installTriggers(); return; }
   var ui = SpreadsheetApp.getUi();
-  var answer = ui.alert('Наповнити форму',
-    'Усі поточні питання форми буде видалено і створено заново зі скрипта. ' +
-    'Посилання на форму і вже зібрані відповіді зберігаються. Продовжити?',
+  var answer = ui.alert('Populate form',
+    'All current form questions will be deleted and recreated from the script. ' +
+    'The form link and already-collected responses are preserved. Continue?',
     ui.ButtonSet.YES_NO);
   if (answer !== ui.Button.YES) { return; }
 
   var form = populateForm();
   installTriggers();
-  alert_('Форму наповнено', form.getPublishedUrl());
+  alert_('Form populated', form.getPublishedUrl());
 }
 
 function menuResetAllData() {
   var ui = SpreadsheetApp.getUi();
-  var answer = ui.alert('Очистити всі тестові дані',
-    'Це очистить колонки "Actual, %" у "' + getConfig().SHEET_NAME + '", а також усі рядки в ' +
-    '"Журнал відповідей" і "Зрілість AI". Target-колонки, заголовки й проєкти НЕ чіпаються.\n\n' +
-    'Це НЕ видаляє відповіді самої форми — Apps Script не має для цього API. ' +
-    'Зробіть це окремо: у формі Відповіді → ⋮ → Видалити всі відповіді, ' +
-    'ДО або ПІСЛЯ цього кроку (порядок не важливий, аби обидва були зроблені).\n\n' +
-    'Продовжити?',
+  var answer = ui.alert('Clear all test data',
+    'This will clear the "Actual, %" columns in "' + getConfig().SHEET_NAME + '", as well as all rows in ' +
+    '"Submission Log" and "AI Maturity". Target columns, headers, and projects are NOT touched.\n\n' +
+    'This does NOT delete the form\'s own responses — Apps Script has no API for that. ' +
+    'Do that separately: in the form, Responses → ⋮ → Delete all responses, ' +
+    'BEFORE or AFTER this step (order doesn\'t matter, as long as both are done).\n\n' +
+    'Continue?',
     ui.ButtonSet.YES_NO);
   if (answer !== ui.Button.YES) { return; }
 
   resetAllData();
-  alert_('Готово', 'Тестові дані очищено. Не забудьте видалити відповіді у самій формі, ' +
-                    'якщо ще не зробили.');
+  alert_('Done', 'Test data cleared. Don\'t forget to delete the responses in the form itself, ' +
+                    'if you haven\'t already.');
 }
 
 function menuSelfTest() {
   var r = runSelfTest();
-  alert_('Самоперевірка', r.summary + (r.failures.length ? '\n\n' + r.failures.join('\n') : ''));
+  alert_('Self-test', r.summary + (r.failures.length ? '\n\n' + r.failures.join('\n') : ''));
 }
 
 /**
- * Показує діалог, коли скрипт прив'язаний до таблиці, і пише в лог, коли ні
- * (у проєкті, створеному з форми або окремо, SpreadsheetApp.getUi() недоступний).
+ * Shows a dialog when the script is bound to the spreadsheet, and logs
+ * instead when it isn't (in a project created from the form or standalone,
+ * SpreadsheetApp.getUi() isn't available).
  */
 function alert_(title, message) {
   try {
@@ -115,7 +116,7 @@ function alert_(title, message) {
   }
 }
 
-/** true, якщо скрипт прив'язаний до таблиці і має UI. */
+/** true if the script is bound to the spreadsheet and has a UI. */
 function hasSpreadsheetUi_() {
   try { SpreadsheetApp.getUi(); return true; } catch (e) { return false; }
 }

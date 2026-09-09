@@ -3,6 +3,8 @@
  *
  * Тут описано все, що потрібно решті скриптів: розкладка таблиці, 8 фаз STLC,
  * проєкти, тексти форми і контрольований словник міток.
+ * Форма і всі дані в таблиці — англійською мовою (респонденти й таблиця
+ * можуть бути міжнародними); код і коментарі лишаються українською.
  * Змінили тут — запустіть меню «AI STLC ▸ Наповнити форму».
  *
  * Значення, які перевизначаються без правки коду:
@@ -20,10 +22,10 @@ var DEFAULTS = {
   TARGET_SPREADSHEET_ID: '1eAF4qx9d3g6hQKqAm34ZO3HJwd1okfLF3cJrfleeeC8',
 
   SHEET_NAME: 'AI QA Optimization',
-  MATURITY_SHEET: 'Зрілість AI',
-  LOG_SHEET: 'Журнал відповідей',
-  COVERAGE_SHEET: 'Покриття',
-  FEEDBACK_SHEET: 'Інструменти та відгуки',
+  MATURITY_SHEET: 'AI Maturity',
+  LOG_SHEET: 'Submission Log',
+  COVERAGE_SHEET: 'Coverage',
+  FEEDBACK_SHEET: 'Tools & Feedback',
 
   FIRST_DATA_ROW: 4,   // рядки 1–3 — об'єднаний заголовок
   COL_NUM: 1,          // A  #
@@ -59,52 +61,52 @@ var PERIODS = ['Q3 2026', 'Q4 2026', 'Q1 2027', 'Q2 2027'];
  */
 var PHASES = [
   {
-    id: 1, key: 'p1', short: '1. Аналіз вимог', metric: 'Час циклу аналізу',
+    id: 1, key: 'p1', short: '1. Requirements Analysis', metric: 'Analysis cycle time',
     targetCol: 5, actualCol: 6, sign: -1, target: -0.30, range: '−20–40%',
-    unit: 'годин на епік / фічу', example: '8 / 5',
-    question: 'Фаза 1 — час аналізу вимог (годин на епік/фічу): було / з AI'
+    unit: 'hours per epic / feature', example: '8 / 5',
+    question: 'Phase 1 — Requirements analysis time (hours per epic/feature): baseline / with AI'
   },
   {
-    id: 2, key: 'p2', short: '2. Планування тестування', metric: 'Трудомісткість планування',
+    id: 2, key: 'p2', short: '2. Test Planning', metric: 'Planning effort',
     targetCol: 7, actualCol: 8, sign: -1, target: -0.25, range: '−20–30%',
-    unit: 'годин на тест-план', example: '16 / 12',
-    question: 'Фаза 2 — трудомісткість планування (годин на тест-план): було / з AI'
+    unit: 'hours per test plan', example: '16 / 12',
+    question: 'Phase 2 — Planning effort (hours per test plan): baseline / with AI'
   },
   {
-    id: 3, key: 'p3', short: '3. Дизайн тестів', metric: 'Час написання тест-кейсів',
+    id: 3, key: 'p3', short: '3. Test Design', metric: 'TC authoring time',
     targetCol: 9, actualCol: 10, sign: -1, target: -0.28, range: '−25–30%',
-    unit: 'годин на 10 тест-кейсів', example: '5 / 3.5',
-    question: 'Фаза 3 — написання тест-кейсів (годин на 10 тест-кейсів): було / з AI'
+    unit: 'hours per 10 test cases', example: '5 / 3.5',
+    question: 'Phase 3 — Test case authoring (hours per 10 test cases): baseline / with AI'
   },
   {
-    id: 4, key: 'p4', short: '4. Налаштування середовища', metric: 'Час підготовки середовища',
+    id: 4, key: 'p4', short: '4. Environment Setup', metric: 'Env provisioning time',
     targetCol: 11, actualCol: 12, sign: -1, target: -0.33, range: '−25–40%',
-    unit: 'годин на середовище', example: '6 / 4',
-    question: 'Фаза 4 — підготовка тестового середовища (годин на середовище): було / з AI'
+    unit: 'hours per environment', example: '6 / 4',
+    question: 'Phase 4 — Test environment provisioning (hours per environment): baseline / with AI'
   },
   {
-    id: 5, key: 'p5', short: '5. Виконання тестів', metric: 'Пропускна здатність виконання',
+    id: 5, key: 'p5', short: '5. Test Execution', metric: 'Execution throughput',
     targetCol: 13, actualCol: 14, sign: +1, target: 0.18, range: '+5–30%',
-    unit: 'тест-кейсів на годину', example: '6 / 7.5',
-    question: 'Фаза 5 — швидкість виконання (тест-кейсів на годину): було / з AI'
+    unit: 'test cases per hour', example: '6 / 7.5',
+    question: 'Phase 5 — Execution speed (test cases per hour): baseline / with AI'
   },
   {
-    id: 6, key: 'p6', short: '6. Робота з дефектами', metric: 'Час тріажу дефекту',
+    id: 6, key: 'p6', short: '6. Defect Management', metric: 'Triage time per defect',
     targetCol: 15, actualCol: 16, sign: -1, target: -0.33, range: '−30–35%',
-    unit: 'хвилин на дефект', example: '20 / 13',
-    question: 'Фаза 6 — тріаж дефектів (хвилин на дефект): було / з AI'
+    unit: 'minutes per defect', example: '20 / 13',
+    question: 'Phase 6 — Defect triage (minutes per defect): baseline / with AI'
   },
   {
-    id: 7, key: 'p7', short: '7. Завершення тестування', metric: 'Час підготовки TSR',
+    id: 7, key: 'p7', short: '7. Test Closure', metric: 'TSR generation time',
     targetCol: 17, actualCol: 18, sign: -1, target: -0.30, range: '−20–40%',
-    unit: 'годин на звіт', example: '4 / 2.5',
-    question: 'Фаза 7 — підсумковий звіт TSR (годин на звіт): було / з AI'
+    unit: 'hours per report', example: '4 / 2.5',
+    question: 'Phase 7 — Test Summary Report (hours per report): baseline / with AI'
   },
   {
-    id: 8, key: 'p8', short: '8. Автоматизація тестування', metric: 'Час написання скриптів',
+    id: 8, key: 'p8', short: '8. Test Automation', metric: 'Script authoring time',
     targetCol: 19, actualCol: 20, sign: -1, target: -0.30, range: '−20–40%',
-    unit: 'годин на 10 скриптів', example: '20 / 14',
-    question: 'Фаза 8 — написання автотестів (годин на 10 скриптів): було / з AI'
+    unit: 'hours per 10 scripts', example: '20 / 14',
+    question: 'Phase 8 — Automation script authoring (hours per 10 scripts): baseline / with AI'
   }
 ];
 
@@ -116,16 +118,16 @@ var PHASES = [
 var STATUS_ORDER = ['USED_MEASURED', 'USED_UNMEASURED', 'NOT_YET', 'NA_PRODUCT', 'NA_NDA', 'NA_TOOLING'];
 
 var STATUSES = {
-  USED_MEASURED:   { label: 'Так — використовуємо і маємо заміри',        numeric: true,  cell: null },
-  USED_UNMEASURED: { label: 'Так — використовуємо, але без замірів',      numeric: true,  cell: null },
-  NOT_YET:         { label: 'Ні — але технічно можливо',                  numeric: false, cell: '0% — ще не використовуємо' },
-  NA_PRODUCT:      { label: 'Ні — специфіка продукту / проєкту',          numeric: false, cell: 'N/A — специфіка продукту' },
-  NA_NDA:          { label: 'Ні — NDA / приватність даних',               numeric: false, cell: 'N/A — NDA / приватність даних' },
-  NA_TOOLING:      { label: 'Ні — немає автоматизації / CI-CD / інструментів', numeric: false, cell: 'N/A — немає автоматизації / CI-CD' }
+  USED_MEASURED:   { label: 'Yes — used & measured',                   numeric: true,  cell: null },
+  USED_UNMEASURED: { label: 'Yes — used, not measured',                numeric: true,  cell: null },
+  NOT_YET:         { label: 'No — but feasible',                       numeric: false, cell: '0% — not used yet' },
+  NA_PRODUCT:      { label: 'No — product / project specifics',        numeric: false, cell: 'N/A — product specifics' },
+  NA_NDA:          { label: 'No — NDA / data privacy',                 numeric: false, cell: 'N/A — NDA / data privacy' },
+  NA_TOOLING:      { label: 'No — no automation / CI-CD / tooling',    numeric: false, cell: 'N/A — no automation / CI-CD' }
 };
 
 /** Пишеться, коли фаза позначена як «використовуємо», але немає ні годин, ні оцінки. */
-var LABEL_PENDING = 'Немає даних';
+var LABEL_PENDING = 'Data pending';
 
 /**
  * Питання-шлюз: якщо на проєкті AI не використовується взагалі, форма одразу
@@ -133,8 +135,8 @@ var LABEL_PENDING = 'Немає даних';
  * без секцій про зрілість, виміряні дані чи метрики якості.
  */
 var OVERALL_USAGE = {
-  YES: 'Так — принаймні на одній фазі використовуємо',
-  NO: 'Ні — AI не використовується на жодній фазі'
+  YES: 'Yes — used in at least one phase',
+  NO: 'No — AI is not used in any phase'
 };
 
 /** Причини для «Ні» вище — ті самі 4 «не-так» статуси з Q7, без USED_*. */
@@ -145,33 +147,33 @@ function noAiReasonLabels() {
 }
 
 /** Діапазони самооцінки (Q18). `mid` — величина; знак підставляє Compute.gs. */
-var BUCKET_ORDER = ['Без змін (0%)', 'До 10%', '10–20%', '20–30%', '30–40%', 'Понад 40%', 'Не застосовно'];
+var BUCKET_ORDER = ['No change (0%)', 'Up to 10%', '10–20%', '20–30%', '30–40%', 'Over 40%', 'Not applicable'];
 
 var BUCKETS = {
-  'Без змін (0%)':  0.00,
-  'До 10%':         0.05,
+  'No change (0%)': 0.00,
+  'Up to 10%':      0.05,
   '10–20%':         0.15,
   '20–30%':         0.25,
   '30–40%':         0.35,
-  'Понад 40%':      0.45,
-  'Не застосовно':  null
+  'Over 40%':       0.45,
+  'Not applicable': null
 };
 
 /** Шкала зрілості (розділ 3.1 фреймворку). Індекс == бал. */
 var MATURITY_OPTIONS = [
-  '0 — AI не використовується',
-  '1 — епізодично (пробували 1–2 рази, процесу немає)',
-  '2 — описаний процес (систематично, спільні промпти, результати рев\'юяться)',
-  '3 — виміряно і покращується (є заміри ефекту, квартальний перегляд)'
+  '0 — no AI',
+  '1 — occasional (tried 1–2 times, no process)',
+  '2 — defined process (systematic, shared prompts, results reviewed)',
+  '3 — measured & improving (gains measured, quarterly review)'
 ];
 
 /** Розділ 3.3 — сума балів (0–24) у рівень зрілості. */
 var MATURITY_LEVELS = [
-  { level: 'L0', min: 0,  max: 4,  desc: 'AI не використовується. Усі фази STLC виконуються вручну.' },
-  { level: 'L1', min: 5,  max: 8,  desc: 'AI використовується неформально в 1–2 фазах. Процесу і метрик немає.' },
-  { level: 'L2', min: 9,  max: 14, desc: 'Описаний процес у 3–5 фазах. Відстежуються базові метрики.' },
-  { level: 'L3', min: 15, max: 19, desc: 'AI покриває 6+ фаз. Рішення на основі метрик. ★ Цільовий рівень.' },
-  { level: 'L4', min: 20, max: 24, desc: 'AI-first. Self-healing автоматизація. Порахований ROI.' }
+  { level: 'L0', min: 0,  max: 4,  desc: 'No AI used. All STLC phases are fully manual.' },
+  { level: 'L1', min: 5,  max: 8,  desc: 'AI used informally in 1–2 phases. No process or metrics.' },
+  { level: 'L2', min: 9,  max: 14, desc: 'Defined process in 3–5 phases. Basic metrics tracked.' },
+  { level: 'L3', min: 15, max: 19, desc: 'AI covers 6+ phases. Metrics-driven decisions. ★ Target level.' },
+  { level: 'L4', min: 20, max: 24, desc: 'AI-first. Self-healing automation. Quantified ROI.' }
 ];
 
 /** Проєкти в порядку рядків таблиці (4..19). Синхронізовано з data/projects.csv. */
@@ -184,7 +186,7 @@ var PROJECTS = [
   { name: 'Fitness App' }
 ];
 
-var PROJECT_OTHER = 'Інший — немає у списку';
+var PROJECT_OTHER = 'Other — not in the list';
 
 /**
  * Нормалізований синонім -> точна назва в колонці B.
@@ -202,40 +204,40 @@ var PROJECT_ALIASES = {
 };
 
 var TESTING_APPROACHES = [
-  'Лише мануальне тестування',
-  'Лише автоматизоване',
-  'Змішаний підхід (мануальне + автоматизація)'
+  'Manual only',
+  'Automated only',
+  'Mixed (manual + automation)'
 ];
 
-var PRODUCT_TYPES = ['Web', 'Mobile', 'Desktop', 'API / бекенд', 'AI-продукт (ML-функціональність)'];
+var PRODUCT_TYPES = ['Web', 'Mobile', 'Desktop', 'API / backend', 'AI-powered (ML features)'];
 
 var DATA_CONSTRAINTS = [
-  'Без обмежень — публічні AI-інструменти дозволені',
-  'Обмежено — лише погоджені / enterprise AI-інструменти',
-  'Заборонено за NDA або політикою клієнта',
-  'Ще не з\'ясовано'
+  'No restrictions — public AI tools allowed',
+  'Restricted — only approved / enterprise AI tools',
+  'Prohibited by NDA or client policy',
+  'Not clarified yet'
 ];
 
 var TOOL_CATEGORIES = [
-  'AI-асистенти (Claude / ChatGPT / Gemini)',
-  'Генератори коду (Claude Code, Copilot, Testim, Mabl, Katalon AI)',
+  'AI Assistants (Claude / ChatGPT / Gemini)',
+  'AI Code Generators (Claude Code, Copilot, Testim, Mabl, Katalon AI)',
   'Visual AI (Applitools, Percy)',
-  'Синтетичні дані (Gretel, Mostly AI, Tonic.ai)',
-  'AI у тест-менеджменті (Jira AI, Sentry AI, Linear AI)',
-  'AI у CI/CD (Datadog Synthetics)',
-  'ML-моніторинг (WhyLabs, Evidently)',
-  'Жодного'
+  'Synthetic Data (Gretel, Mostly AI, Tonic.ai)',
+  'AI in Test Management (Jira AI, Sentry AI, Linear AI)',
+  'AI-enhanced CI/CD (Datadog Synthetics)',
+  'ML Monitoring (WhyLabs, Evidently)',
+  'None'
 ];
 
 var CONFIDENCE_OPTIONS = [
-  'Високий — є тайм-логи в Jira / таймшитах',
-  'Середній — фіксували частково',
-  'Низький — експертна оцінка'
+  'High — tracked in Jira / timesheets',
+  'Medium — partially tracked',
+  'Low — expert judgement'
 ];
 
 var REPORTING_BASIS = {
-  MEASURED: 'Маю виміряні цифри (було / стало)',
-  ESTIMATED: 'Лише оцінка — baseline не фіксували'
+  MEASURED: 'I have measured numbers (before / after)',
+  ESTIMATED: 'Estimate only — no tracked baseline'
 };
 
 /** Приймає «12 / 8», «12/8», «12,5 ; 8», з довільними пробілами. */
@@ -272,7 +274,7 @@ function getTargetSpreadsheet() {
   if (cfg.TARGET_SPREADSHEET_ID) { return SpreadsheetApp.openById(cfg.TARGET_SPREADSHEET_ID); }
   var active = SpreadsheetApp.getActive();
   if (active) { return active; }
-  throw new Error('Не вдалося визначити таблицю. Задайте властивість скрипта TARGET_SPREADSHEET_ID.');
+  throw new Error('Could not determine the spreadsheet. Set the script property TARGET_SPREADSHEET_ID.');
 }
 
 /** Ключ пошуку, нечутливий до регістру і пунктуації: «i-Herb» -> «iherb». */
