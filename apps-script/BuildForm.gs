@@ -91,11 +91,34 @@ function populateForm() {
   return form;
 }
 
-/** Видаляє всі елементи форми. Зібрані раніше відповіді зберігаються. */
+/**
+ * Видаляє всі елементи форми. Зібрані раніше відповіді зберігаються.
+ *
+ * Форма має перехресну навігацію між секціями (setGoToPage на розділювачах
+ * сторінок і page-таргети у варіантах відповіді Q1/Q7-шлюзу/Q9). Якщо просто
+ * видаляти елементи один за одним, Google Forms відхиляє видалення елемента,
+ * на який ще посилається інший, ще не видалений елемент, з помилкою
+ * "Invalid data updating form". Тому спершу знімаємо всю навігацію (зводимо
+ * її до "звичайного продовження" і "звичайних" варіантів без переходів), і
+ * лише потім видаляємо — тепер уже в будь-якому порядку.
+ */
 function clearForm_(form) {
   var items = form.getItems();
-  for (var i = items.length - 1; i >= 0; i--) {
-    form.deleteItem(items[i]);
+
+  for (var i = 0; i < items.length; i++) {
+    var item = items[i];
+    var type = item.getType();
+    if (type === FormApp.ItemType.PAGE_BREAK) {
+      item.asPageBreakItem().setGoToPage(FormApp.PageNavigationType.CONTINUE);
+    } else if (type === FormApp.ItemType.MULTIPLE_CHOICE || type === FormApp.ItemType.LIST) {
+      var typed = (type === FormApp.ItemType.LIST) ? item.asListItem() : item.asMultipleChoiceItem();
+      var plainChoices = typed.getChoices().map(function (c) { return typed.createChoice(c.getValue()); });
+      typed.setChoices(plainChoices);
+    }
+  }
+
+  for (var j = items.length - 1; j >= 0; j--) {
+    form.deleteItem(items[j]);
   }
 }
 
