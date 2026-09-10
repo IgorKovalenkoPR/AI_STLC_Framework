@@ -73,21 +73,20 @@ function populateForm() {
   // сторінок.
   var pbNoAi = buildSectionNoAiPath_(form, map);
 
-  // Жоден перехід не покладається на типову поведінку Google Forms
-  // («продовжити за порядком у документі») — вона виявилась ненадійною
-  // (саме через неї секція «Інструменти» одного разу випала з навігації).
-  // Кожен крок прописано явно.
+  // Перевірено на живій формі: PageBreakItem.setGoToPage() налаштовує перехід
+  // ПОПЕРЕДНЬОЇ сторінки (тієї, що закінчується цим page break), а не тієї,
+  // яку сам page break починає. Виклик pbX.setGoToPage(T) фактично каже
+  // "сторінка ПЕРЕД pbX веде на T" — тому для сусідніх у документі секцій
+  // природний порядок і так коректний (нічого викликати не треба), а явний
+  // виклик потрібен лише там, де є реальний "стрибок" через секцію.
+  // Єдиний такий стрибок у формі: "Tools & feedback" повинна вести на Submit,
+  // минаючи розташовану після неї в документі pbNoAi — тому виклик робимо
+  // саме на pbNoAi (наступний за порядком page break), а не на pbTools.
   wireProjectNavigation_(form, map, pbNewProject, pbGate);
-  pbNewProject.setGoToPage(pbGate);
   wireGateNavigation_(form, map, pbUsage, pbNoAi);
-  pbUsage.setGoToPage(pbMaturity);
-  pbMaturity.setGoToPage(pbBasis || pbEstimate);
   if (basisItem && pbMeasured) {
     wireBasisNavigation_(basisItem, pbMeasured, pbEstimate);
-    pbMeasured.setGoToPage(pbEstimate);
   }
-  pbEstimate.setGoToPage(pbTools);
-  pbTools.setGoToPage(FormApp.PageNavigationType.SUBMIT);
   pbNoAi.setGoToPage(FormApp.PageNavigationType.SUBMIT);
 
   ensureDestination_(form);
