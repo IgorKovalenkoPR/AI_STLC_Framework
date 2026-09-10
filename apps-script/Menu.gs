@@ -15,6 +15,7 @@ function onOpen() {
     .addItem('Recompute all from responses', 'menuRecomputeAll')
     .addItem('Reapply conditional formatting', 'menuReapplyFormatting')
     .addItem('Refresh coverage report', 'menuRefreshCoverage')
+    .addItem('Refresh Target columns from framework', 'menuResyncTargets')
     .addSeparator()
     .addItem('Save period snapshot', 'menuSnapshot')
     .addItem('Populate form from script', 'menuPopulateForm')
@@ -59,6 +60,19 @@ function menuReapplyFormatting() {
 function menuRefreshCoverage() {
   buildCoverage();
   alert_('Coverage', 'The "' + getConfig().COVERAGE_SHEET + '" sheet has been updated.');
+}
+
+function menuResyncTargets() {
+  var ui = SpreadsheetApp.getUi();
+  var answer = ui.alert('Refresh Target columns',
+    'This overwrites every "Target, %" cell in "' + getConfig().SHEET_NAME + '" with the current ' +
+    'value from Config.gs (PHASES[].target) for that phase. Use this after changing a target value ' +
+    'in code. Any per-project Target overrides you typed manually will be lost. Continue?',
+    ui.ButtonSet.YES_NO);
+  if (answer !== ui.Button.YES) { return; }
+
+  var r = resyncTargetColumns();
+  alert_('Done', 'Target columns refreshed for ' + r.rows + ' row(s).');
 }
 
 function menuSnapshot() {

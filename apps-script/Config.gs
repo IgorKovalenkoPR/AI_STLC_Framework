@@ -62,49 +62,49 @@ var PERIODS = ['Q3 2026', 'Q4 2026', 'Q1 2027', 'Q2 2027'];
 var PHASES = [
   {
     id: 1, key: 'p1', short: '1. Requirements Analysis', metric: 'Analysis cycle time',
-    targetCol: 5, actualCol: 6, sign: -1, target: -0.30, range: '−20–40%',
+    targetCol: 5, actualCol: 6, sign: -1, target: -0.20, range: '−20–40%',
     unit: 'hours per epic / feature', example: '8 / 5',
     question: 'Phase 1 — Requirements analysis time (hours per epic/feature): baseline / with AI'
   },
   {
     id: 2, key: 'p2', short: '2. Test Planning', metric: 'Planning effort',
-    targetCol: 7, actualCol: 8, sign: -1, target: -0.25, range: '−20–30%',
+    targetCol: 7, actualCol: 8, sign: -1, target: -0.20, range: '−20–30%',
     unit: 'hours per test plan', example: '16 / 12',
     question: 'Phase 2 — Planning effort (hours per test plan): baseline / with AI'
   },
   {
     id: 3, key: 'p3', short: '3. Test Design', metric: 'TC authoring time',
-    targetCol: 9, actualCol: 10, sign: -1, target: -0.28, range: '−25–30%',
+    targetCol: 9, actualCol: 10, sign: -1, target: -0.25, range: '−25–30%',
     unit: 'hours per 10 test cases', example: '5 / 3.5',
     question: 'Phase 3 — Test case authoring (hours per 10 test cases): baseline / with AI'
   },
   {
     id: 4, key: 'p4', short: '4. Environment Setup', metric: 'Env provisioning time',
-    targetCol: 11, actualCol: 12, sign: -1, target: -0.33, range: '−25–40%',
+    targetCol: 11, actualCol: 12, sign: -1, target: -0.25, range: '−25–40%',
     unit: 'hours per environment', example: '6 / 4',
     question: 'Phase 4 — Test environment provisioning (hours per environment): baseline / with AI'
   },
   {
     id: 5, key: 'p5', short: '5. Test Execution', metric: 'Execution throughput',
-    targetCol: 13, actualCol: 14, sign: +1, target: 0.18, range: '+5–30%',
+    targetCol: 13, actualCol: 14, sign: +1, target: 0.05, range: '+5–30%',
     unit: 'test cases per hour', example: '6 / 7.5',
     question: 'Phase 5 — Execution speed (test cases per hour): baseline / with AI'
   },
   {
     id: 6, key: 'p6', short: '6. Defect Management', metric: 'Triage time per defect',
-    targetCol: 15, actualCol: 16, sign: -1, target: -0.33, range: '−30–35%',
+    targetCol: 15, actualCol: 16, sign: -1, target: -0.30, range: '−30–35%',
     unit: 'minutes per defect', example: '20 / 13',
     question: 'Phase 6 — Defect triage (minutes per defect): baseline / with AI'
   },
   {
     id: 7, key: 'p7', short: '7. Test Closure', metric: 'TSR generation time',
-    targetCol: 17, actualCol: 18, sign: -1, target: -0.30, range: '−20–40%',
+    targetCol: 17, actualCol: 18, sign: -1, target: -0.20, range: '−20–40%',
     unit: 'hours per report', example: '4 / 2.5',
     question: 'Phase 7 — Test Summary Report (hours per report): baseline / with AI'
   },
   {
     id: 8, key: 'p8', short: '8. Test Automation', metric: 'Script authoring time',
-    targetCol: 19, actualCol: 20, sign: -1, target: -0.30, range: '−20–40%',
+    targetCol: 19, actualCol: 20, sign: -1, target: -0.20, range: '−20–40%',
     unit: 'hours per 10 scripts', example: '20 / 14',
     question: 'Phase 8 — Automation script authoring (hours per 10 scripts): baseline / with AI'
   }

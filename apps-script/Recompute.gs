@@ -87,6 +87,29 @@ function clearActualColumns_() {
   }
 }
 
+/**
+ * Overwrites every Target,% cell with the current PHASES[].target value from
+ * Config.gs. Existing rows keep whatever number was written when the row was
+ * created (appendProjectRow_ only fires for brand-new rows), so this is the
+ * catch-up step whenever the target values in Config.gs change — e.g. after
+ * correcting them to the framework's minimum-acceptable bound instead of a
+ * midpoint. Does not touch Actual columns.
+ */
+function resyncTargetColumns() {
+  var cfg = getConfig();
+  var sheet = getMainSheet_();
+  var firstRow = cfg.FIRST_DATA_ROW;
+  var lastRow = Math.max(lastDataRow_(sheet), firstRow);
+  var numRows = lastRow - firstRow + 1;
+  for (var i = 0; i < PHASES.length; i++) {
+    sheet.getRange(firstRow, PHASES[i].targetCol, numRows, 1)
+         .setValue(PHASES[i].target)
+         .setNumberFormat(cfg.NUMBER_FORMAT);
+  }
+  applyFormatting();
+  return { rows: numRows };
+}
+
 /* ------------------------------------------------------------------ */
 /* Coverage                                                            */
 /* ------------------------------------------------------------------ */

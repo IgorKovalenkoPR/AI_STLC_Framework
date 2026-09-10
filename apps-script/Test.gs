@@ -23,21 +23,21 @@ function fixture_(phaseKey, opts) {
 function selfTestCases_() {
   return [
     // --- measured hours, time-reduction phases -----------------------------
-    { name: 'Ph3 measured 5/3.5 -> -30% (beats -28% target)',
+    { name: 'Ph3 measured 5/3.5 -> -30% (beats -25% target)',
       data: fixture_('p3', { status: 'USED_MEASURED', hours: '5 / 3.5' }),
       expect: { value: -0.3, source: 'measured', meets: true } },
-    { name: 'Ph1 measured 8/5 -> -37.5% (beats -30% target)',
+    { name: 'Ph1 measured 8/5 -> -37.5% (beats -20% target)',
       data: fixture_('p1', { status: 'USED_MEASURED', hours: '8 / 5' }),
       expect: { value: -0.375, source: 'measured', meets: true } },
-    { name: 'Ph2 measured 16/14 -> -12.5% (misses -25% target)',
+    { name: 'Ph2 measured 16/14 -> -12.5% (misses -20% target)',
       data: fixture_('p2', { status: 'USED_MEASURED', hours: '16 / 14' }),
       expect: { value: -0.125, source: 'measured', meets: false } },
 
     // --- throughput phase keeps the opposite sign --------------------------
-    { name: 'Ph5 measured 6/7.5 -> +25% (beats +18% target)',
+    { name: 'Ph5 measured 6/7.5 -> +25% (beats +5% target)',
       data: fixture_('p5', { status: 'USED_MEASURED', hours: '6 / 7.5' }),
       expect: { value: 0.25, source: 'measured', meets: true } },
-    { name: 'Ph5 measured 8/8 -> 0% (misses +18% target)',
+    { name: 'Ph5 measured 8/8 -> 0% (misses +5% target)',
       data: fixture_('p5', { status: 'USED_MEASURED', hours: '8 / 8' }),
       expect: { value: 0, source: 'measured', meets: false } },
 
